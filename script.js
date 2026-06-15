@@ -43,7 +43,7 @@ const descriptionTextarea = document.getElementById('product-description');
    3. УПРАВЛЕНИЕ ИНТЕРФЕЙСОМ И НАВИГАЦИЯ
    ========================================================================== */
 // Динамическое переключение сеток размеров при смене категории
-if (categorySelect) {
+if (categorySelect && outerwearBlock && pantsBlock) {
     categorySelect.addEventListener('change', (e) => {
         if (e.target.value === 'outerwear') {
             outerwearBlock.style.display = 'block';
@@ -56,14 +56,14 @@ if (categorySelect) {
 }
 
 // Кнопки переключения экранов (Витрина <-> Админка)
-if (btnToAdmin) {
+if (btnToAdmin && catalogContainer && adminPanel) {
     btnToAdmin.addEventListener('click', () => { 
         catalogContainer.style.display = 'none'; 
         adminPanel.style.display = 'block'; 
     });
 }
 
-if (btnToCatalog) {
+if (btnToCatalog && catalogContainer && adminPanel) {
     btnToCatalog.addEventListener('click', () => { 
         adminPanel.style.display = 'none'; 
         catalogContainer.style.display = 'block'; 
@@ -109,6 +109,8 @@ async function checkAdminAccess() {
    5. ЗАГРУЗКА И РЕНДЕРИНГ ОСТАТКОВ (ВИТРИНА)
    ========================================================================== */
 async function loadProducts() {
+    if (!productsGrid) return;
+
     try {
         const { data: products, error: prodError } = await supabaseClient
             .from('products')
@@ -164,7 +166,7 @@ async function loadProducts() {
                     
                     <div class="stock-info-text">${stockStatusLine}</div>
                     
-                    <button class="template-btn" onclick="useAsTemplate('${product.name}', ${product.price}, '${JSON.stringify(product.image_url)}', '${safeDescription}')">
+                    <button class="template-btn" onclick="useAsTemplate('${product.name.replace(/'/g, "\\'")}', ${product.price}, '${JSON.stringify(product.image_url)}', '${safeDescription}')">
                         ИСПОЛЬЗОВАТЬ КАК ЗАГОТОВКУ
                     </button>
                 </div>
@@ -182,11 +184,16 @@ async function loadProducts() {
    6. РАБОТА С ЗАГОТОВКАМИ (МАГИЯ ШАБЛОНОВ)
    ========================================================================== */
 window.useAsTemplate = function(name, price, imageUrlsRaw, descriptionRaw) {
-    catalogContainer.style.display = 'none';
-    adminPanel.style.display = 'block';
+    if (catalogContainer && adminPanel) {
+        catalogContainer.style.display = 'none';
+        adminPanel.style.display = 'block';
+    }
 
-    document.getElementById('prod-name').value = name;
-    document.getElementById('prod-price').value = price;
+    const nameInput = document.getElementById('prod-name');
+    const priceInput = document.getElementById('prod-price');
+
+    if (nameInput) nameInput.value = name;
+    if (priceInput) priceInput.value = price;
     
     // Подтягиваем старое описание в наше новое текстовое поле
     if (descriptionTextarea) {
@@ -202,7 +209,7 @@ window.useAsTemplate = function(name, price, imageUrlsRaw, descriptionRaw) {
     const sizeInputs = document.querySelectorAll('.size-input');
     sizeInputs.forEach(input => input.value = 0);
 
-    alert(`Заготовка для "${name}" успешно подтянута! Измените размеры/текст и отправляйте в базу.`);
+    showStatusModal('ЗАГОТОВКА', `Шаблон для "${name}" успешно подтянут! Измени остатки и дропай.`, true);
 };
 
 
@@ -214,19 +221,25 @@ if (form) {
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        const name = document.getElementById('prod-name').value;
-        const price = parseFloat(document.getElementById('prod-price').value);
-        const category = categorySelect.value;
+        const nameInput = document.getElementById('prod-name');
+        const priceInput = document.getElementById('prod-price');
         
-        // Получаем текст из нового поля Описания
+        if (!nameInput || !priceInput) return;
+
+        const name = nameInput.value;
+        const price = parseFloat(priceInput.value);
+        const category = categorySelect ? categorySelect.value : 'outerwear';
+        
+        // Получаем текст из поля Описания
         const description = descriptionTextarea ? descriptionTextarea.value : '';
         
-        const imageFiles = document.getElementById('prod-image-file').files;
+        const imageFileInput = document.getElementById('prod-image-file');
+        const imageFiles = imageFileInput ? imageFileInput.files : [];
         let imageUrls = []; 
 
         try {
             // 7.1. Мультизагрузка фоток в Supabase Storage
-            if (imageFiles.length > 0) {
+            if (imageFiles && imageFiles.length > 0) {
                 for (let i = 0; i < imageFiles.length; i++) {
                     const file = imageFiles[i];
                     const fileExt = file.name.split('.').pop();
@@ -252,18 +265,18 @@ if (form) {
                     ? window.currentTemplateImageUrl 
                     : [window.currentTemplateImageUrl];
             } else {
-                alert('Пожалуйста, выберите хотя бы один файл фотографии!');
+                showStatusModal('ВНИМАНИЕ', 'Пожалуйста, выберите хотя бы один файл фотографии!', false);
                 return;
             }
 
-            // 7.2. Пушим запись в 'products' (Передаем имя, цену, массив картинок и ТЕКСТ ОПИСАНИЯ)
+            // 7.2. Пушим запись в 'products'
             const { data: productData, error: productError } = await supabaseClient
                 .from('products')
                 .insert([{ 
                     name: name, 
                     price: price, 
                     image_url: imageUrls, 
-                    description: description // Новое поле летит на склад!
+                    description: description 
                 }])
                 .select()
                 .single();
@@ -273,22 +286,24 @@ if (form) {
 
             // 7.3. Сбор размерной сетки
             const activeBlock = category === 'outerwear' ? outerwearBlock : pantsBlock;
-            const inputs = activeBlock.querySelectorAll('.size-input');
             const variantsToInsert = [];
 
-            inputs.forEach(input => {
-                const sizeName = input.getAttribute('data-size');
-                const stockVal = parseInt(input.value) || 0;
-                
-                if (stockVal > 0) {
-                    variantsToInsert.push({
-                        product_id: productId,
-                        size: sizeName,
-                        color: 'Black',
-                        stock: stockVal
-                    });
-                }
-            });
+            if (activeBlock) {
+                const inputs = activeBlock.querySelectorAll('.size-input');
+                inputs.forEach(input => {
+                    const sizeName = input.getAttribute('data-size');
+                    const stockVal = parseInt(input.value) || 0;
+                    
+                    if (stockVal > 0) {
+                        variantsToInsert.push({
+                            product_id: productId,
+                            size: sizeName,
+                            color: 'Black',
+                            stock: stockVal
+                        });
+                    }
+                });
+            }
 
             if (variantsToInsert.length > 0) {
                 const { error: variantsError } = await supabaseClient
@@ -314,7 +329,7 @@ if (form) {
                         product_id: productId, 
                         name: name,
                         price: price,
-                        description: description, // n8n теперь видит твои замеры и языковые блоки
+                        description: description, 
                         images: imageUrls, 
                         sizes: activeSizesText || 'Размеры не указаны',
                         admin_telegram_id: userTelegramId
@@ -325,68 +340,58 @@ if (form) {
                 console.error('Ошибка n8n:', n8nErr.message);
             }
 
-            alert('ДРОП И ВСЕ ОСТАТКИ УСПЕШНО СОХРАНЕНЫ!');
+            // ОКНО УСПЕХА
+            showStatusModal('УСПЕХ!', 'ДРОП И ВСЕ ОСТАТКИ УСПЕШНО СОХРАНЕНЫ!', true);
             
             // Полный сброс формы и переменных
             form.reset();
             window.currentTemplateImageUrl = null;
             
-            outerwearBlock.style.display = 'block';
-            pantsBlock.style.display = 'none';
+            if (outerwearBlock && pantsBlock) {
+                outerwearBlock.style.display = 'block';
+                pantsBlock.style.display = 'none';
+            }
 
         } catch (err) {
-            alert('Ошибка операции: ' + err.message);
+            // ОКНО КРАША
+            showStatusModal('ОШИБКА ОПЕРАЦИИ', err.message, false);
         }
     });
 }
 
 
 /* ==========================================================================
-   8. АВТОЗАПУСК ПРИ ЗАГРУЗКЕ СТРАНИЦЫ
+   8. КАСТОМНЫЕ МОДАЛЬНЫЕ ОКНА (ПЛАШКИ) И АВТОЗАПУСК
    ========================================================================== */
-loadProducts();
-checkAdminAccess();
-
 // Функция плавного показа нашего окна
 function showStatusModal(title, message, isSuccess = true) {
     const modal = document.getElementById('custom-modal');
+    if (!modal) return;
+    
     const modalContent = modal.querySelector('.modal-content');
+    const modalTitle = document.getElementById('modal-title');
+    const modalMessage = document.getElementById('modal-message');
     
-    document.getElementById('modal-title').textContent = title;
-    document.getElementById('modal-message').textContent = message;
+    if (modalTitle) modalTitle.textContent = title;
+    if (modalMessage) modalMessage.textContent = message;
     
-    // Сбрасываем старые стили оформления и ставим нужные
-    modalContent.classList.remove('modal-success', 'modal-error');
-    modalContent.classList.add(isSuccess ? 'modal-success' : 'modal-error');
+    if (modalContent) {
+        modalContent.classList.remove('modal-success', 'modal-error');
+        modalContent.classList.add(isSuccess ? 'modal-success' : 'modal-error');
+    }
     
-    // Включаем плавное появление
     modal.classList.add('active');
 }
 
 // Вешаем закрытие окна на кнопку
-document.getElementById('modal-close-btn').addEventListener('click', () => {
-    document.getElementById('custom-modal').classList.remove('active');
-});
+const modalCloseBtn = document.getElementById('modal-close-btn');
+if (modalCloseBtn) {
+    modalCloseBtn.addEventListener('click', () => {
+        const modal = document.getElementById('custom-modal');
+        if (modal) modal.classList.remove('active');
+    });
+}
 
-// Интеграция в твою отправку формы
-const productForm = document.getElementById('add-product-form');
-productForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    try {
-        // 1. Твоя логика сбора полей и размеров...
-        
-        // 2. Твоя логика загрузки фоток в Supabase Storage...
-        
-        // 3. Твоя отправка fetch запроса на вебхук n8n...
-        // const response = await fetch(N8N_WEBHOOK_URL, { ... });
-
-        // Если всё прошло успешно и код не вылетел в catch:
-        showStatusModal('УСПЕХ!', 'Товар успешно задроплен на склад и отправлен Аудитору!', true);
-        productForm.reset(); // Очищаем форму для новой шмотки
-        
-    } catch (error) {
-        // Если на любом этапе (картинки, база, n8n) случился краш — ловим его сюда
-        showStatusModal('ОШИБКА ДРОПА', `Код споткнулся: ${error.message}`, false);
-    }
-});
+// Запуск фоновых проверок и отрисовки склада при старте
+loadProducts();
+checkAdminAccess();
