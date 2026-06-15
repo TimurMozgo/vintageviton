@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>vintageviton | CRM & STOCK</title>
+    <!-- Подключаем наш брутальный файл стилей -->
+    <link rel="stylesheet" href="style.css">
+    <!-- Подключаем официальный скрипт Telegram Web Apps API -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+
+    <!-- ==========================================================================
+       ЭКРАН 1: ВИТРИНА МАГАЗИНА (КАТАЛОГ ОСТАТКОВ СТРИТВИРА)
+       ========================================================================== -->
+    <div id="store-front" class="store-container">
+        <header class="store-header">
+            <h1 class="neo-brand">vintageviton</h1>
+            <p class="store-tagline">REAL-TIME STOCK AUDIT</p>
+        </header>
+
+        <!-- Кнопка перехода в админку. По умолчанию скрыта, показываем только админу через JS -->
+        <button id="toggle-to-admin" class="admin-toggle-btn" onclick="document.getElementById('store-front').style.display='none'; document.getElementById('admin-panel').style.display='block';">ПАНЕЛЬ УПРАВЛЕНИЯ →</button>
+
+        <!-- Сетка товаров, куда JS будет рендерить карточки из Supabase -->
+        <div id="products-list" class="products-grid">
+            <p class="loading-text">ЗАГРУЗКА СКЛАДА...</p>
+        </div>
+    </div>
+
+
+    <!-- ==========================================================================
+       ЭКРАН 2: АДМИН-ПАНЕЛЬ (УПРАВЛЕНИЕ ДРОПАМИ И МУЛЬТИЗАГРУЗКА)
+       ========================================================================== -->
+    <div id="admin-panel" class="admin-container" style="display: none;">
+        <button id="toggle-to-catalog" class="catalog-toggle-btn" onclick="document.getElementById('admin-panel').style.display='none'; document.getElementById('store-front').style.display='block';">← НА ВИТРИНУ</button>
+
+        <h1 class="neo-brand" style="margin-top: 15px;">vintageviton</h1>
+        <p class="neo-subtitle">NEW DROP MANAGEMENT</p>
+
+        <form id="add-product-form" class="neo-form">
+            <!-- Название товара -->
+            <div class="form-group">
+                <label>Название шмотки</label>
+                <input type="text" id="prod-name" placeholder="VINTAGE T-SHIRT 'BLACK'" required>
+            </div>
+
+            <!-- Цена -->
+            <div class="form-group">
+                <label>Цена</label>
+                <input type="number" id="prod-price" placeholder="2500" required>
+            </div>
+
+            <!-- Мультизагрузка файлов прямо из галереи телефона -->
+            <div class="form-group">
+                <label>Фотографии дропа (ракурсы / детали)</label>
+                <input type="file" id="prod-image-file" accept="image/*" multiple required class="neo-file-input">
+            </div>
+
+            <!-- ПОЛЕ ОПИСАНИЯ ТОВАРА -->
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label style="display: block; font-family: sans-serif; font-weight: bold; text-transform: uppercase; margin-bottom: 5px;">Описание товара</label>
+                <textarea id="product-description" rows="6" placeholder="Вставь сюда шаблон (Condition, Size, measurements...)" style="width: 100%; padding: 10px; border: 2px solid #000; font-family: monospace; font-size: 14px; box-sizing: border-box; resize: vertical;"></textarea>
+            </div>
+
+            <!-- Категория (переключает размерные сетки) -->
+            <div class="form-group">
+                <label>Тип товара (Категория)</label>
+                <select id="prod-category" class="neo-select" required>
+                    <option value="outerwear">Верхняя одежда (XXS - 5XL)</option>
+                    <option value="pants">Штаны / Деним (26 - 44)</option>
+                </select>
+            </div>
+
+            <!-- Блок размеров: Верхняя одежда -->
+            <div id="sizes-outerwear-block" class="size-section">
+                <label class="section-label">Размерная сетка: Верхняя одежда (шт)</label>
+                <div class="stock-grid">
+                    <div class="stock-item"><span class="size-badge">XXS</span><input type="number" class="size-input" data-size="XXS" min="0" value="0"></div>
+                    <div class="stock-item"><span class="size-badge">XS</span><input type="number" class="size-input" data-size="XS" min="0" value="0"></div>
+                    <div class="stock-item"><span class="size-badge">S</span><input type="number" class="size-input" data-size="S" min="0" value="0"></div>
+                    <div class="stock-item"><span class="size-badge">M</span><input type="number" class="size-input" data-size="M" min="0" value="0"></div>
+                    <div class="stock-item"><span class="size-badge">L</span><input type="number" class="size-input" data-size="L" min="0" value="0"></div>
+                    <div class="stock-item"><span class="size-badge">XL</span><input type="number" class="size-input" data-size="XL" min="0" value="0"></div>
+                    <div class="stock-item"><span class="size-badge">XXL</span><input type="number" class="size-input" data-size="XXL" min="0" value="0"></div>
+                    <div class="stock-item"><span class="size-badge">3XL</span><input type="number" class="size-input" data-size="3XL" min="0" value="0"></div>
+                    <div class="stock-item"><span class="size-badge">4XL</span><input type="number" class="size-input" data-size="4XL" min="0" value="0"></div>
+                    <div class="stock-item"><span class="size-badge">5XL</span><input type="number" class="size-input" data-size="5XL" min="0" value="0"></div>
+                </div>
+            </div>
+
+            <!-- Блок размеров: Штаны / Джинсы -->
+            <div id="sizes-pants-block" class="size-section" style="display: none;">
+                <label class="section-label">Размерная сетка: Штаны / Джинсы (шт)</label>
+                <div class="stock-grid num-grid">
+                    <div class="stock-item"><span class="size-badge">26</span><input type="number" class="size-input" data-size="26" min="0" value="0"></div>
+                    <div class="stock-item"><span class="size-badge">27</span><input type="number" class="size-input" data-size="27" min="0" value="0"></div>
+                    <div class="stock-item"><span class="size-badge">28</span><input type="number" class="size-input" data-size="28" min="0" value="0"></div>
+                    <div class="stock-item"><span class="size-badge">29</span><input type="number" class="size-input" data-size="29" min="0" value="0"></div>
+                    <div class="stock-item"><span class="size-badge">30</span><input type="number" class="size-input" data-size="30" min="0" value="0"></div>
+                    <div class="stock-item"><span class="size-badge">31</span><input type="number" class="size-input" data-size="31" min="0" value="0"></div>
+                    <div class="stock-item"><span class="size-badge">32</span><input type="number" class="size-input" data-size="32" min="0" value="0"></div>
+                    <div class="stock-item"><span class="size-badge">33</span><input type="number" class="size-input" data-size="33" min="0" value="0"></div>
+                    <div class="stock-item"><span class="size-badge">34</span><input type="number" class="size-input" data-size="34" min="0" value="0"></div>
+                    <div class="stock-item"><span class="size-badge">35</span><input type="number" class="size-input" data-size="35" min="0" value="0"></div>
+                    <div class="stock-item"><span class="size-badge">36</span><input type="number" class="size-input" data-size="36" min="0" value="0"></div>
+                    <div class="stock-item"><span class="size-badge">37</span><input type="number" class="size-input" data-size="37" min="0" value="0"></div>
+                    <div class="stock-item"><span class="size-badge">38</span><input type="number" class="size-input" data-size="38" min="0" value="0"></div>
+                    <div class="stock-item"><span class="size-badge">39</span><input type="number" class="size-input" data-size="39" min="0" value="0"></div>
+                    <div class="stock-item"><span class="size-badge">40</span><input type="number" class="size-input" data-size="40" min="0" value="0"></div>
+                    <div class="stock-item"><span class="size-badge">41</span><input type="number" class="size-input" data-size="41" min="0" value="0"></div>
+                    <div class="stock-item"><span class="size-badge">42</span><input type="number" class="size-input" data-size="42" min="0" value="0"></div>
+                    <div class="stock-item"><span class="size-badge">43</span><input type="number" class="size-input" data-size="43" min="0" value="0"></div>
+                    <div class="stock-item"><span class="size-badge">44</span><input type="number" class="size-input" data-size="44" min="0" value="0"></div>
+                </div>
+            </div>
+
+            <!-- Главная экшен-кнопка отправки на n8n и в базу -->
+            <button type="submit" class="neo-btn" style="margin-top: 20px;">ВНЕСТИ В БАЗУ</button>
+        </form>
+    </div>
+
+    <!-- Подключаем логику Supabase и обработчики событий -->
+    <script src="script.js"></script>
+</body>
+</html>

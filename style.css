@@ -1,0 +1,565 @@
+/* ==========================================================================
+   1. ГЛОБАЛЬНЫЕ НАСТРОЙКИ И ПЕРЕМЕННЫЕ (БАЗА)
+   ========================================================================== */
+:root {
+  --border-width: 3px;
+  --border-style: var(--border-width) solid #000000;
+  --bg-color: #F4F4F0; /* Фирменный винтажный оттенок бумаги вместо едкого белого */
+  --card-bg: #FFFFFF;
+  --text-color: #000000;
+  --shadow-style: 6px 6px 0px #000000;
+  --shadow-active: 1px 1px 0px #000000;
+  --accent-green: #00FF66; /* Сочный акцент для наличия */
+}
+
+* {
+  box-sizing: border-box;
+  font-family: 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  padding: 16px;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Общие брутальные заголовки */
+.neo-brand {
+  font-family: 'Impact', 'Arial Black', sans-serif;
+  font-size: 3.8rem;
+  text-transform: uppercase;
+  letter-spacing: -2px;
+  margin: 0;
+  line-height: 0.85;
+  text-align: center;
+  transform: skewX(-4px); /* Лёгкий динамичный наклон в стиле стритвир плакатов */
+}
+
+.neo-subtitle {
+  font-family: 'Impact', sans-serif;
+  font-size: 0.9rem;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  background: #000000;
+  color: #FFFFFF;
+  display: block;
+  width: max-content;
+  padding: 6px 12px;
+  margin: 12px auto 30px auto;
+}
+
+
+/* ==========================================================================
+   2. КОНТЕЙНЕРЫ ЭКРАНОВ (УПРАВЛЕНИЕ ВИДИМОСТЬЮ)
+   ========================================================================== */
+.store-container, 
+.admin-container {
+  max-width: 500px; /* Сузили для идеального вида на экранах любых смартфонов */
+  margin: 0 auto;
+  padding: 8px 8px 50px 8px;
+}
+
+
+/* ==========================================================================
+   3. КНОПКИ ПЕРЕКЛЮЧЕНИЯ РЕЖИМОВ (НАВИГАЦИЯ)
+   ========================================================================== */
+.admin-toggle-btn {
+  width: 100%;
+  background: #000000;
+  color: #FFFFFF;
+  border: var(--border-style);
+  padding: 16px;
+  font-family: 'Impact', sans-serif;
+  font-size: 1.2rem;
+  letter-spacing: 2px;
+  cursor: pointer;
+  margin-bottom: 30px;
+  text-transform: uppercase;
+  box-shadow: var(--shadow-style);
+  transition: transform 0.05s construction, box-shadow 0.05s;
+}
+
+.admin-toggle-btn:active {
+  transform: translate(5px, 5px);
+  box-shadow: var(--shadow-active);
+}
+
+.catalog-toggle-btn {
+  background: var(--card-bg);
+  color: #000000;
+  border: var(--border-style);
+  padding: 8px 16px;
+  font-family: 'Impact', sans-serif;
+  font-size: 1rem;
+  cursor: pointer;
+  text-transform: uppercase;
+  box-shadow: 4px 4px 0px #000000;
+  transition: all 0.05s;
+}
+
+.catalog-toggle-btn:active {
+  transform: translate(3px, 3px);
+  box-shadow: var(--shadow-active);
+}
+
+
+/* ==========================================================================
+   4. ВИТРИНА МАГАЗИНА (КАТАЛОГ ОСТАТКОВ СТРИТВИРА)
+   ========================================================================== */
+.store-header {
+  text-align: center;
+  margin-bottom: 35px;
+  border-bottom: var(--border-style);
+  padding-bottom: 25px;
+}
+
+.store-tagline {
+  font-weight: 900;
+  font-size: 0.85rem;
+  letter-spacing: 6px;
+  margin: 12px 0 0 0;
+}
+
+/* Сетка карточек на витрине */
+.products-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.loading-text {
+  grid-column: 1 / -1;
+  text-align: center;
+  font-family: 'Impact', sans-serif;
+  font-size: 1.5rem;
+  letter-spacing: 2px;
+  margin-top: 50px;
+}
+
+/* Карточка товара */
+.product-card {
+  border: var(--border-style);
+  background: var(--card-bg);
+  box-shadow: var(--shadow-style);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: transform 0.2s;
+}
+
+/* Обертка для фото */
+.product-img-wrapper {
+  border-bottom: var(--border-style);
+  width: 100%;
+  padding-top: 100%; /* Сохраняем квадрат */
+  position: relative;
+  background: #EAEAEA;
+  overflow: hidden;
+}
+
+.product-card img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: grayscale(100%); /* Фирменный монохром */
+  transition: filter 0.3s;
+}
+
+/* При наведении/тапе убираем чб фильтр, чтобы клиент кайфанул от цвета вещи */
+.product-card:active img {
+  filter: grayscale(0%);
+}
+
+/* Складские индикаторы на фото */
+.status-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 10;
+  font-family: 'Impact', sans-serif;
+  font-size: 0.7rem;
+  padding: 4px 8px;
+  letter-spacing: 1px;
+  border: 2px solid #000000;
+  text-transform: uppercase;
+}
+
+.in-stock {
+  background: var(--accent-green);
+  color: #000000;
+}
+
+.out-of-stock {
+  background: #FF3333;
+  color: #FFFFFF;
+}
+
+/* Информационный блок под фото */
+.product-info {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.product-name {
+  font-family: 'Arial Black', sans-serif;
+  font-size: 1rem;
+  text-transform: uppercase;
+  margin: 0 0 4px 0;
+  line-height: 1.1;
+  letter-spacing: -0.5px;
+}
+
+.product-price {
+  font-family: 'Impact', sans-serif;
+  font-size: 1.2rem;
+  margin: 0 0 10px 0;
+  letter-spacing: 0.5px;
+}
+
+/* Текст остатков размеров */
+.stock-info-text {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #444444;
+  margin-bottom: 14px;
+  text-transform: uppercase;
+  border-top: 2px dashed #000000;
+  padding-top: 8px;
+  line-height: 1.3;
+}
+
+/* Кнопка заготовки */
+.template-btn {
+  width: 100%;
+  background: #000000;
+  color: #FFFFFF;
+  border: 2px solid #000000;
+  padding: 10px 6px;
+  font-family: 'Impact', sans-serif;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  margin-top: auto; /* Всегда прижата вниз */
+  transition: background 0.1s, color 0.1s;
+}
+
+.template-btn:active {
+  background: #FFFFFF;
+  color: #000000;
+}
+
+
+/* ==========================================================================
+   5. АДМИН-ПАНЕЛЬ (ФОРМА И ИНПУТЫ)
+   ========================================================================== */
+.neo-form {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  background: var(--card-bg);
+  border: var(--border-style);
+  padding: 24px 20px;
+  box-shadow: var(--shadow-style);
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  font-family: 'Impact', sans-serif;
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 14px;
+  font-size: 1rem;
+  font-weight: 600;
+  border: var(--border-style);
+  background-color: var(--card-bg);
+  border-radius: 0;
+}
+
+.form-group input:focus {
+  outline: none;
+  background-color: #FDFDFD;
+  box-shadow: inset 2px 2px 0px #000000;
+}
+
+/* Файловый инпут (Выбор фото из галереи) */
+.neo-file-input {
+  background: #EAEAEA;
+  border: var(--border-style);
+  padding: 12px !important;
+  font-family: 'Impact', sans-serif;
+  cursor: pointer;
+}
+
+.neo-file-input::-webkit-file-upload-button {
+  background: #000000;
+  color: #FFFFFF;
+  border: none;
+  padding: 8px 16px;
+  font-family: 'Impact', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  margin-right: 12px;
+}
+
+.neo-file-input::-webkit-file-upload-button:active {
+  background: #FFFFFF;
+  color: #000000;
+}
+
+/* Брутальный селектор категорий */
+.neo-select {
+  width: 100%;
+  padding: 14px;
+  background-color: var(--card-bg);
+  border: var(--border-style);
+  font-family: 'Impact', sans-serif;
+  font-size: 1rem;
+  letter-spacing: 1px;
+  border-radius: 0;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='black'><polygon points='0,2 14,2 7,11'/></svg>");
+  background-repeat: no-repeat;
+  background-position: calc(100% - 16px) center;
+}
+
+.neo-select:focus {
+  outline: none;
+}
+
+/* Главная кнопка отправки дропа */
+.neo-btn {
+  width: 100%;
+  background: #00FF66; /* Яркий акцент на кнопке финального действия */
+  color: #FFF;
+  border: var(--border-style);
+  padding: 16px;
+  font-family: 'Impact', sans-serif;
+  font-size: 1.5rem;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: var(--shadow-style);
+  transition: transform 0.05s, box-shadow 0.05s;
+  letter-spacing: 1px;
+}
+
+.neo-btn:active {
+  transform: translate(5px, 5px);
+  box-shadow: var(--shadow-active);
+}
+
+
+/* ==========================================================================
+   6. РАЗМЕРНЫЕ СЕТКИ И СКЛАД
+   ========================================================================== */
+.section-label {
+  font-family: 'Impact', sans-serif;
+  font-size: 1.2rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 12px;
+  display: block;
+}
+
+/* Две колонки для верха (XXS - 5XL) */
+.stock-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+/* Пять колонок для джинс (26 - 44) */
+.num-grid {
+  grid-template-columns: repeat(5, 1fr) !important;
+  gap: 6px !important;
+}
+
+/* Ячейка размера */
+.stock-item {
+  display: flex;
+  border: var(--border-style);
+  background: var(--card-bg);
+}
+
+.size-badge {
+  background: #000000;
+  color: #FFFFFF;
+  font-family: 'Impact', sans-serif;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  padding: 0 4px;
+}
+
+.num-grid .size-badge {
+  min-width: 30px;
+  font-size: 0.85rem;
+}
+
+.size-input {
+  width: 100%;
+  border: none;
+  padding: 12px 6px;
+  font-size: 1.2rem;
+  font-weight: bold;
+  text-align: center;
+  font-family: 'Impact', sans-serif;
+  background: transparent;
+}
+
+.size-input:focus {
+  outline: none;
+  background: #EAEAEA;
+}
+
+.size-input::-webkit-outer-spin-button,
+.size-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+
+/* ==========================================================================
+   7. АНИМАЦИИ И ЭФФЕКТЫ
+   ========================================================================== */
+.size-section {
+  animation: neoPopFade 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes neoPopFade {
+  from {
+    opacity: 0;
+    transform: scale(0.98) translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ==========================================================================
+   АДАПТИВНАЯ МОБИЛЬНАЯ ВЁРСТКА (ДЛЯ ЭКРАНОВ МЕНЕЕ 768px)
+   ========================================================================== */
+@media screen and (max-width: 768px) {
+    
+    /* Ограничиваем контейнер всей витрины/админки под экран телефона */
+    body {
+        padding: 0;
+        margin: 0;
+        background-color: #f5f5f5;
+        -webkit-tap-highlight-color: transparent; /* Убираем синее выделение при тапе */
+    }
+
+    /* Главный контейнер приложения */
+    .container, .mobile-container, main {
+        max-width: 100% !important;
+        width: 100% !important;
+        padding: 10px !important;
+        box-sizing: border-box !important;
+    }
+
+    /* --- СЕТКА ТОВАРОВ И ФОРМЫ --- */
+    /* Перестраиваем сетку товаров на 2 колонки на мобилках */
+    #products-list, .products-grid {
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px !important;
+        width: 100% !important;
+    }
+
+    /* Если элементы формы (ввод имени, цены) стояли в ряд — ставим их друг под друга */
+    .form-row, .input-group-row {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 10px !important;
+    }
+
+    /* --- КАРТОЧКА ТОВАРА И ЭЛЕМЕНТЫ ФОРМЫ --- */
+    .product-card {
+        border: 3px solid #000 !important;
+        box-shadow: 4px 4px 0 #000 !important;
+        margin-bottom: 5px;
+    }
+
+    /* Делаем фотку квадратной на мобилках, чтобы не плыли пропорции */
+    .product-img-wrapper, .product-image-holder {
+        position: relative !important;
+        width: 100% !important;
+        padding-top: 100% !important; /* Пропорции 1:1 */
+        height: 0 !important;
+    }
+
+    .product-img-wrapper img, .product-image-holder img {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+    }
+
+    /* --- РАЗМЕРНАЯ СЕТКА (КАК НА НАШИХ СКРИНШОТАХ) --- */
+    /* Делаем блоки выбора размеров по 2 штуки в ряд, чтобы пальцем было удобно попадать */
+    .size-grid, [style*="grid-template-columns"] {
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+    }
+
+    /* Стилизуем инпуты и кнопки под мобильные тапы */
+    input[type="text"], 
+    input[type="number"], 
+    textarea, 
+    select {
+        font-size: 16px !important; /* Защита от авто-зума на iOS при клике на инпут */
+        padding: 12px 10px !important; /* Увеличенные поля для удобства пальцев */
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    /* --- КНОПКИ --- */
+    /* Главная кнопка "ЗАДРОПИТЬ В БАЗУ" на весь экран */
+    .btn-submit, button[type="submit"], #drop-btn, .template-btn {
+        width: 100% !important;
+        padding: 15px !important;
+        font-size: 16px !important;
+        text-transform: uppercase !important;
+        font-weight: 900 !important;
+        cursor: pointer;
+    }
+
+    /* Отклик на нажатие пальцем (вместо ховера на ПК) */
+    .btn-submit:active, button:active {
+        background-color: #333 !important;
+        color: #fff !important;
+    }
+
+    /* Специфический фикс для кнопки "ЗАДРОПИТЬ В БАЗУ", если она на зеленом фоне */
+    button[style*="background-color: rgb(0, 255, 102)"]:active,
+    button[style*="background: #00ff66"]:active {
+        background-color: #00cc52 !important;
+    }
+}
