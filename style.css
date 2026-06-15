@@ -552,50 +552,87 @@ body {
 }
 
 /* ==========================================================================
-   АДАПТИВНАЯ МОБИЛЬНАЯ ВЁРСТКА (ДЛЯ ЭКРАНОВ МЕНЕЕ 768px)
+   АДАПТИВНАЯ МОБИЛЬНАЯ ВЁРСТКА (СТРОГО ПО ЦЕНТРУ / ДЛЯ ЭКРАНОВ МЕНЕЕ 768px)
    ========================================================================== */
 @media screen and (max-width: 768px) {
     
-    /* Ограничиваем контейнер всей витрины/админки под экран телефона */
+    /* Центрируем всё тело страницы и выравниваем контент по оси */
     body {
         padding: 0;
         margin: 0;
         background-color: #f5f5f5;
-        -webkit-tap-highlight-color: transparent; /* Убираем синее выделение при тапе */
+        -webkit-tap-highlight-color: transparent;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important; /* Строгий центр по горизонтали */
+        text-align: center !important;  /* Весь текст летит в центр */
     }
 
-    /* Главный контейнер приложения */
-    .container, .mobile-container, main {
+    /* Контейнеры витрины и админки фиксируем по центру */
+    .store-container, .admin-container, .container, .mobile-container, main {
         max-width: 100% !important;
         width: 100% !important;
-        padding: 10px !important;
+        padding: 15px !important;
         box-sizing: border-box !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important; /* Намертво держим внутренности по центру */
+        margin: 0 auto !important;
+    }
+
+    /* Заголовки и подзаголовки */
+    .store-header, .neo-brand, .store-tagline, .neo-subtitle {
+        text-align: center !important;
+        width: 100% !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
     }
 
     /* --- СЕТКА ТОВАРОВ И ФОРМЫ --- */
-    /* Перестраиваем сетку товаров на 2 колонки на мобилках */
+    /* Сетка товаров: 2 колонки, но сами карточки выравниваем по центру */
     #products-list, .products-grid {
         display: grid !important;
         grid-template-columns: repeat(2, 1fr) !important;
-        gap: 10px !important;
+        gap: 12px !important;
+        width: 100% !important;
+        justify-content: center !important;
+        justify-items: center !important; /* Элементы сетки строго по центру */
+    }
+
+    /* Элементы формы и строки */
+    .neo-form {
+        width: 100% !important;
+        max-width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+    }
+
+    .form-group, .form-row, .input-group-row {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important; /* Центрируем инпуты и лейблы */
+        gap: 8px !important;
         width: 100% !important;
     }
 
-    /* Если элементы формы (ввод имени, цены) стояли в ряд — ставим их друг под друга */
-    .form-row, .input-group-row {
-        display: flex !important;
-        flex-direction: column !important;
-        gap: 10px !important;
+    .form-group label {
+        text-align: center !important;
+        width: 100% !important;
     }
 
-    /* --- КАРТОЧКА ТОВАРА И ЭЛЕМЕНТЫ ФОРМЫ --- */
+    /* --- КАРТОЧКА ТОВАРА --- */
     .product-card {
         border: 3px solid #000 !important;
         box-shadow: 4px 4px 0 #000 !important;
         margin-bottom: 5px;
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important; /* Контент внутри карточки по центру */
     }
 
-    /* Делаем фотку квадратной на мобилках, чтобы не плыли пропорции */
+    /* Фотографии */
     .product-img-wrapper, .product-image-holder {
         position: relative !important;
         width: 100% !important;
@@ -612,43 +649,62 @@ body {
         object-fit: cover !important;
     }
 
-    /* --- РАЗМЕРНАЯ СЕТКА (КАК НА НАШИХ СКРИНШОТАХ) --- */
-    /* Делаем блоки выбора размеров по 2 штуки в ряд, чтобы пальцем было удобно попадать */
-    .size-grid, [style*="grid-template-columns"] {
+    /* --- РАЗМЕРНАЯ СЕТКА --- */
+    /* Размеры по 2 в ряд, центрируем саму сетку */
+    .size-grid, .stock-grid, [style*="grid-template-columns"] {
         display: grid !important;
         grid-template-columns: repeat(2, 1fr) !important;
         gap: 8px !important;
+        width: 100% !important;
+        justify-content: center !important;
+        justify-items: center !important;
     }
 
-    /* Стилизуем инпуты и кнопки под мобильные тапы */
+    .stock-item {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important; /* Инпут под бейджем строго по центру */
+        width: 100% !important;
+    }
+
+    /* --- ИНПУТЫ И ПОЛЯ ВВОДА --- */
+    /* Текст внутри инпутов теперь тоже печатается ровно по центру */
     input[type="text"], 
     input[type="number"], 
     textarea, 
     select {
-        font-size: 16px !important; /* Защита от авто-зума на iOS при клике на инпут */
-        padding: 12px 10px !important; /* Увеличенные поля для удобства пальцев */
+        font-size: 16px !important; 
+        padding: 12px 10px !important; 
         width: 100% !important;
         box-sizing: border-box !important;
+        text-align: center !important; /* Текст и плейсхолдеры по центру */
+    }
+
+    /* На всякий случай фикс для выравнивания текста внутри select */
+    select {
+        text-align-last: center !important; 
     }
 
     /* --- КНОПКИ --- */
-    /* Главная кнопка "ЗАДРОПИТЬ В БАЗУ" на весь экран */
-    .btn-submit, button[type="submit"], #drop-btn, .template-btn {
+    /* Кнопки на весь экран с отцентрованным текстом */
+    .btn-submit, button[type="submit"], #drop-btn, .template-btn, .admin-toggle-btn, .catalog-toggle-btn {
         width: 100% !important;
         padding: 15px !important;
         font-size: 16px !important;
         text-transform: uppercase !important;
         font-weight: 900 !important;
         cursor: pointer;
+        text-align: center !important;
+        display: block !important;
+        margin: 10px auto !important; /* Центрируем саму кнопку маржинами */
     }
 
-    /* Отклик на нажатие пальцем (вместо ховера на ПК) */
+    /* Нажатия пальцем */
     .btn-submit:active, button:active {
         background-color: #333 !important;
         color: #fff !important;
     }
 
-    /* Специфический фикс для кнопки "ЗАДРОПИТЬ В БАЗУ", если она на зеленом фоне */
     button[style*="background-color: rgb(0, 255, 102)"]:active,
     button[style*="background: #00ff66"]:active {
         background-color: #00cc52 !important;
