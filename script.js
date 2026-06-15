@@ -346,3 +346,47 @@ if (form) {
    ========================================================================== */
 loadProducts();
 checkAdminAccess();
+
+// Функция плавного показа нашего окна
+function showStatusModal(title, message, isSuccess = true) {
+    const modal = document.getElementById('custom-modal');
+    const modalContent = modal.querySelector('.modal-content');
+    
+    document.getElementById('modal-title').textContent = title;
+    document.getElementById('modal-message').textContent = message;
+    
+    // Сбрасываем старые стили оформления и ставим нужные
+    modalContent.classList.remove('modal-success', 'modal-error');
+    modalContent.classList.add(isSuccess ? 'modal-success' : 'modal-error');
+    
+    // Включаем плавное появление
+    modal.classList.add('active');
+}
+
+// Вешаем закрытие окна на кнопку
+document.getElementById('modal-close-btn').addEventListener('click', () => {
+    document.getElementById('custom-modal').classList.remove('active');
+});
+
+// Интеграция в твою отправку формы
+const productForm = document.getElementById('add-product-form');
+productForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    try {
+        // 1. Твоя логика сбора полей и размеров...
+        
+        // 2. Твоя логика загрузки фоток в Supabase Storage...
+        
+        // 3. Твоя отправка fetch запроса на вебхук n8n...
+        // const response = await fetch(N8N_WEBHOOK_URL, { ... });
+
+        // Если всё прошло успешно и код не вылетел в catch:
+        showStatusModal('УСПЕХ!', 'Товар успешно задроплен на склад и отправлен Аудитору!', true);
+        productForm.reset(); // Очищаем форму для новой шмотки
+        
+    } catch (error) {
+        // Если на любом этапе (картинки, база, n8n) случился краш — ловим его сюда
+        showStatusModal('ОШИБКА ДРОПА', `Код споткнулся: ${error.message}`, false);
+    }
+});
