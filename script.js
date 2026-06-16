@@ -27,48 +27,81 @@ window.currentWarehouseTab = 'active';
    ГЛOБАЛЬНЫЕ ФУНКЦИИ ИНТЕРФЕЙСА (ДОСТУПНЫ ИЗ ЛЮБОЙ ТОЧКИ И КОЛБЭКОВ ТГ)
    ========================================================================== */
 
-// 1. ЛОГИКА КНОПКИ "УЗНАТЬ БОЛЬШЕ"
+// 1. ЛОГИКА КНОПКИ "УЗНАТЬ БОЛЬШЕ" — АДАПТИРОВАНО ДЛЯ TELEGRAM MINI APP
 window.openProductModal = function(productId) {
+    // Проверка 1: Загружен ли кэш товаров
     if (!window.currentProducts || window.currentProducts.length === 0) {
-        alert("Массив товаров пуст. Дождись загрузки витрины.");
+        if (window.Telegram && window.Telegram.WebApp) {
+            window.Telegram.WebApp.showAlert("Массив товаров пуст. Дождись полной загрузки витрины.");
+        } else {
+            alert("Массив товаров пуст. Дождись загрузки витрины.");
+        }
         return;
     }
 
-    const product = window.currentProducts.find(p => String(p.id) === String(productId));
+    // Жесткий поиск по ID с приведением к строке и нижнему регистру (чтобы UUID из Supabase не терялся)
+    const product = window.currentProducts.find(p => String(p.id).toLowerCase() === String(productId).toLowerCase());
     
+    // Проверка 2: Нашелся ли товар на складе
     if (!product) {
-        alert(`Критический сбой: Товар с ID ${productId} не найден на складе!`);
+        const errorMsg = `Критический сбой: Товар с ID ${productId} не найден на складе! Всего в кэше: ${window.currentProducts.length}`;
+        if (window.Telegram && window.Telegram.WebApp) {
+            window.Telegram.WebApp.showAlert(errorMsg);
+        } else {
+            alert(errorMsg);
+        }
         return;
     }
 
+    // Ищем элементы структуры модалки в HTML
     const modalEl = document.getElementById('product-modal');
     const carouselEl = document.getElementById('modal-carousel');
     const titleEl = document.getElementById('product-modal-title');
     const priceEl = document.getElementById('modal-price');
     const descEl = document.getElementById('modal-desc');
 
+    // Проверка 3: Проверяем, все ли ID элементов созданы в твоем index.html
     if (!modalEl || !carouselEl || !titleEl || !priceEl || !descEl) {
-        alert("Ошибка: В HTML не найдены элементы структуры модального окна!");
+        let missingElements = [];
+        if (!modalEl) missingElements.push('product-modal');
+        if (!carouselEl) missingElements.push('modal-carousel');
+        if (!titleEl) missingElements.push('product-modal-title');
+        if (!priceEl) missingElements.push('modal-price');
+        if (!descEl) missingElements.push('modal-desc');
+
+        const htmlError = "Ошибка структуры HTML. Не найдены элементы: " + missingElements.join(', ');
+        if (window.Telegram && window.Telegram.WebApp) {
+            window.Telegram.WebApp.showAlert(htmlError);
+        } else {
+            alert(htmlError);
+        }
         return;
     }
 
+    // Рендерим карусель картинок шмотки
     const images = Array.isArray(product.image_url) ? product.image_url : [product.image_url];
     
     carouselEl.innerHTML = images.map(url => `
         <img src="${url}" class="carousel-item" style="flex: 0 0 100%; width: 100%; max-height: 280px; object-fit: cover; border-radius: 12px;" alt="Дроп" onerror="this.src='https://placehold.co/400x400?text=NO+IMAGE'">
     `).join('');
 
+    // Наполняем модалку актуальными данными из базы
     titleEl.innerText = product.name;
     priceEl.innerText = `${product.price} UAH`;
     descEl.innerText = product.description || 'Описание отсутствует.';
 
-    modalEl.style.display = 'flex';
+    // Открываем окно на мобилках красиво и четко
+    modalEl.style.setProperty('display', 'flex', 'important');
+    modalEl.classList.add('active'); // На случай, если у тебя анимация открытия через класс .active в CSS
 };
 
-// 2. ЗАКРЫТИЕ МОДАЛКИ Товара
+// 2. ЗАКРЫТИЕ МОДАЛКИ ТОВАРA
 window.closeModal = function() {
     const modalEl = document.getElementById('product-modal');
-    if (modalEl) modalEl.style.display = 'none';
+    if (modalEl) {
+        modalEl.style.display = 'none';
+        modalEl.classList.remove('active');
+    }
 };
 
 // 3. ЛОГИКА КНОПКИ "ПРОДАНО" — ИСПРАВЛЕНА ДЛЯ ТЕЛЕГРАМА
