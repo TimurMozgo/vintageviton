@@ -375,10 +375,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Настройка бэджика статуса шмотки на карточке
                     let statusBadge = '';
                     if ((window.currentWarehouseTab || 'active') === 'active') {
-                        statusBadge = totalStock > 0 
-                            ? '<span class="status-badge in-stock">В НАЛИЧИИ</span>' 
-                            : '<span class="status-badge out-of-stock">РАСПРОДАНО</span>';
+                        // В папке "В НАЛИЧИИ" плашка на картинке больше не нужна — карточка будет чистой
+                        statusBadge = ''; 
                     } else {
+                        // Плашка показывается ОФИЦИАЛЬНО ТОЛЬКО во вкладке "ПРОДАНО"
                         statusBadge = '<span class="status-badge out-of-stock" style="background: #e53935; border-color: #ff1744;">ПРОДАНО</span>';
                     }
 
