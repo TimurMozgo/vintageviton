@@ -606,4 +606,106 @@ document.addEventListener('DOMContentLoaded', () => {
     // Запуск процессов
     window.loadProducts();
     checkAdminAccess();
+
+    // ЛОГИКА ЖИВОГО ПОИСКА И ПОДСКАЗОК
+    const searchInput = document.getElementById('search-input');
+    const suggestionsBox = document.getElementById('search-suggestions');
+
+    if (searchInput && suggestionsBox) {
+        
+        // 1. ОТСЛЕЖИВАЕМ ВВОД СИМВОЛОВ (ПОДКАЗКИ)
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase().trim();
+            
+            // Если в строке пусто — прячем подсказки и сбрасываем фильтр (показываем всё)
+            if (!query) {
+                suggestionsBox.innerHTML = '';
+                suggestionsBox.style.display = 'none';
+                filterAndRenderProducts(''); 
+                return;
+            }
+
+            // Ищем совпадения по названию в нашем загруженном кэше товаров
+            const matches = (window.currentProducts || []).filter(product => 
+                product.name.toLowerCase().includes(query)
+            );
+
+            if (matches.length === 0) {
+                suggestionsBox.innerHTML = '<div class="suggestion-item" style="cursor:default;">Ничего не найдено</div>';
+                suggestionsBox.style.display = 'block';
+                return;
+            }
+
+            // Собираем элементы подсказок (показываем максимум 5 штук, чтобы не спамить экран)
+            suggestionsBox.innerHTML = matches.slice(0, 5).map(product => `
+                <div class="suggestion-item" data-id="${product.id}" data-name="${product.name}">
+                    <span>${product.name}</span>
+                    <span class="suggestion-price">${product.price} UAH</span>
+                </div>
+            `).join('');
+            
+            suggestionsBox.style.display = 'block';
+
+            // Вешаем клик на каждую подсказку
+            suggestionsBox.querySelectorAll('.suggestion-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const selectedName = item.getAttribute('data-name');
+                    searchInput.value = selectedName; // Подставляем имя в инпут
+                    suggestionsBox.innerHTML = '';    // Прячем подсказки
+                    suggestionsBox.style.display = 'none';
+                    
+                    filterAndRenderProducts(selectedName.toLowerCase().trim()); // Фильтруем витрину
+                });
+            });
+        });
+
+        // 2. ФИЛЬТРАЦИЯ ПРИ НАЖАТИИ ENTER В СТРОКЕ ПОИСКА
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const query = searchInput.value.toLowerCase().trim();
+                suggestionsBox.innerHTML = '';
+                suggestionsBox.style.display = 'none';
+                filterAndRenderProducts(query);
+            }
+        });
+
+        // Клик мимо поиска закрывает подсказки
+        document.addEventListener('click', (e) => {
+            if (e.target !== searchInput && e.target !== suggestionsBox) {
+                suggestionsBox.innerHTML = '';
+                suggestionsBox.style.style.display = 'none';
+            }
+        });
+    }
+
+    // 3. ФУНКЦИЯ ДИНАМИЧЕСКОЙ ФИЛЬТРАЦИИ КАРТОЧЕК НА ЭКРАНЕ
+    function filterAndRenderProducts(query) {
+        const cards = document.querySelectorAll('.product-card');
+        let foundAny = false;
+
+        cards.forEach(card => {
+            const productName = card.querySelector('.product-name')?.innerText.toLowerCase() || '';
+            
+            if (productName.includes(query)) {
+                card.style.display = 'block'; // Показываем карточку
+                foundAny = true;
+            } else {
+                card.style.display = 'none';  // Прячем карточку
+            }
+        });
+
+        // Если скрыли вообще всё, выводим заглушку "Ничего не найдено" в сетку
+        let noResultMsg = document.getElementById('search-no-results');
+        if (!foundAny && query !== '') {
+            if (!noResultMsg) {
+                noResultMsg = document.createElement('p');
+                noResultMsg.id = 'search-no-results';
+                noResultMsg.className = 'loading-text';
+                noResultMsg.innerText = 'НЕТ СОВПАДЕНИЙ ПО ЗАПРОСУ';
+                document.getElementById('products-list').appendChild(noResultMsg);
+            }
+        } else {
+            if (noResultMsg) noResultMsg.remove();
+        }
+    }
 });

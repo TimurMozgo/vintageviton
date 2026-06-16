@@ -17,6 +17,11 @@
 
         <button id="toggle-to-admin" class="admin-toggle-btn" onclick="document.getElementById('store-front').style.display='none'; document.getElementById('admin-panel').style.display='block';">ПАНЕЛЬ УПРАВЛЕНИЯ →</button>
 
+        <div class="search-wrapper">
+            <input type="text" id="search-input" class="neo-search-input" placeholder="ПОИСК ПО СКЛАДУ..." autocomplete="off">
+            <div id="search-suggestions" class="search-suggestions-box"></div>
+        </div>
+
         <div class="warehouse-tabs">
             <button id="tab-active" class="tab-btn active">В НАЛИЧИИ</button>
             <button id="tab-sold" class="tab-btn">ПРОДАНО</button>

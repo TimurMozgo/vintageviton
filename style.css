@@ -52,6 +52,85 @@ body {
   margin: 12px auto 30px auto;
 }
 
+/* РАЗДЕЛ С ПОИСКОВОЙ СТРОКОЙ */
+
+/* Контейнер поиска */
+.search-wrapper {
+    position: relative;
+    margin: 15px 0;
+    width: 100%;
+}
+
+/* Строка ввода */
+.neo-search-input {
+    width: 100%;
+    padding: 12px 16px;
+    background: #111;
+    border: 2px solid #b388ff; /* Фиолетовый неон */
+    border-radius: 8px;
+    color: #fff;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    outline: none;
+    box-sizing: border-box;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 5px rgba(179, 136, 255, 0.2);
+}
+
+.neo-search-input:focus {
+    box-shadow: 0 0 15px rgba(179, 136, 255, 0.6);
+    border-color: #d1c4e9;
+}
+
+/* Выпадающий блок живых подсказок */
+.search-suggestions-box {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    background: #121212;
+    border: 2px solid #b388ff;
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    z-index: 99999;
+    max-height: 200px;
+    overflow-y: auto;
+    box-sizing: border-box;
+    display: none; /* Прячем по дефолту */
+    box-shadow: 0 10px 20px rgba(0,0,0,0.8);
+}
+
+/* Элемент списка подсказок */
+.suggestion-item {
+    padding: 12px 16px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    border-bottom: 1px solid #222;
+    transition: background 0.2s ease;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.suggestion-item:last-child {
+    border-bottom: none;
+}
+
+.suggestion-item:hover {
+    background: #b388ff;
+    color: #000;
+}
+
+/* Маленький ценник внутри подсказки */
+.suggestion-price {
+    font-size: 11px;
+    opacity: 0.7;
+    font-weight: 700;
+}
+
 /* Контейнер для папок */
 .warehouse-tabs {
     display: flex;
