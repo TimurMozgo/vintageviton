@@ -52,6 +52,47 @@ body {
   margin: 12px auto 30px auto;
 }
 
+/* Контейнер для папок */
+.warehouse-tabs {
+    display: flex;
+    gap: 12px;
+    margin: 15px 10px 20px 10px;
+    padding: 4px;
+    background: #0f0f12; /* Глубокий темный */
+    border: 2px solid #1a1a24;
+    border-radius: 12px;
+}
+
+/* Общий стиль для кнопок-папок */
+.tab-btn {
+    flex: 1;
+    padding: 12px 16px;
+    font-family: 'Impact', 'Arial Black', sans-serif; /* Плотный шрифт как на лого */
+    font-size: 14px;
+    letter-spacing: 1px;
+    background: transparent;
+    color: #7a7a9a;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    text-transform: uppercase;
+}
+
+/* Эффект при наведении */
+.tab-btn:hover {
+    color: #fff;
+}
+
+/* Стиль для АКТИВНОЙ папки (Фиолетовый неоновый акцент) */
+.tab-btn.active {
+    background: #6a1b9a; /* Твой фирменный фиолетовый */
+    color: #ffffff;
+    font-weight: bold;
+    box-shadow: 0 0 15px rgba(106, 27, 154, 0.5); /* Неоновое свечение */
+    border: 1px solid #9c27b0;
+}
+
 
 /* ==========================================================================
    2. КОНТЕЙНЕРЫ ЭКРАНОВ (УПРАВЛЕНИЕ ВИДИМОСТЬЮ)

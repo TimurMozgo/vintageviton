@@ -17,11 +17,15 @@
 
         <button id="toggle-to-admin" class="admin-toggle-btn" onclick="document.getElementById('store-front').style.display='none'; document.getElementById('admin-panel').style.display='block';">ПАНЕЛЬ УПРАВЛЕНИЯ →</button>
 
+        <div class="warehouse-tabs">
+            <button id="tab-active" class="tab-btn active">В НАЛИЧИИ</button>
+            <button id="tab-sold" class="tab-btn">ПРОДАНО</button>
+        </div>
+
         <div id="products-list" class="products-grid">
             <p class="loading-text">ЗАГРУЗКА СКЛАДА...</p>
         </div>
     </div>
-
 
     <div id="admin-panel" class="admin-container" style="display: none;">
         <button id="toggle-to-catalog" class="catalog-toggle-btn" onclick="document.getElementById('admin-panel').style.display='none'; document.getElementById('store-front').style.display='block';">← НА ВИТРИНУ</button>

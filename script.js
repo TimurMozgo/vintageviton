@@ -20,6 +20,9 @@ window.currentTemplateDescription = null;
 // Глобальный клиент Supabase (инициализируется при загрузке DOM)
 let supabaseClient = null;
 
+// Текущий экран склада: 'active' (в наличии) или 'sold' (продано)
+window.currentWarehouseTab = 'active';
+
 /* ==========================================================================
    ГЛOБАЛЬНЫЕ ФУНКЦИИ ИНТЕРФЕЙСА (ДОСТУПНЫ ИЗ ЛЮБОЙ ТОЧКИ И КОЛБЭКОВ ТГ)
    ========================================================================== */
@@ -93,6 +96,52 @@ window.markAsSold = function(productId) {
             });
         }
     }
+};
+
+// 3.2 ЛОГИКА КНОПКИ "ВЫСТАВИТЬ СНОВА" — ДЛЯ АВТОМАТИЧЕСКОГО КАМБЭКА НА ВИТРИНУ
+window.markAsActive = function(productId) {
+    if (window.Telegram && window.Telegram.WebApp && typeof window.Telegram.WebApp.showPopup === 'function') {
+        window.Telegram.WebApp.showPopup({
+            title: 'Аудит склада',
+            message: 'Вернуть этот товар обратно на витрину в категорию активных?',
+            buttons: [
+                { id: 'yes', type: 'default', text: 'Да, выставить' },
+                { id: 'no', type: 'cancel', text: 'Отмена' }
+            ]
+        }, function(buttonId) {
+            if (buttonId === 'yes') {
+                window.executeMarkAsActive(productId).catch(err => {
+                    alert('Ошибка восстановления: ' + err.message);
+                });
+            }
+        });
+    } else {
+        if (confirm('Вернуть товар на витрину?')) {
+            window.executeMarkAsActive(productId).catch(err => {
+                alert('Ошибка восстановления: ' + err.message);
+            });
+        }
+    }
+};
+
+// 4.2 ИСПОЛНЕНИЕ АПДЕЙТА СТАТУСА НА "ACTIVE" В БАЗЕ
+window.executeMarkAsActive = async function(productId) {
+    if (!supabaseClient) throw new Error("Клиент Supabase не инициализирован");
+
+    const { error } = await supabaseClient
+        .from('products')
+        .update({ status: 'active' }) // Меняем статус обратно на витрину
+        .eq('id', productId);
+
+    if (error) throw error;
+
+    if (window.Telegram && window.Telegram.WebApp) {
+        window.Telegram.WebApp.showAlert('Товар успешно вернулся на витрину!');
+    } else {
+        alert('Товар успешно вернулся на витрину!');
+    }
+    
+    window.loadProducts(); // Перерисовываем склад, чтобы карточка исчезла из проданных
 };
 
 // 4. ИСПОЛНЕНИЕ АПДЕЙТА СТАТУСА В БАЗЕ
@@ -208,6 +257,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnToAdmin = document.getElementById('toggle-to-admin');
     const btnToCatalog = document.getElementById('toggle-to-catalog');
 
+    // Кнопки переключения папок склада (В НАЛИЧИИ / ПРОДАНО)
+    const tabActive = document.getElementById('tab-active');
+    const tabSold = document.getElementById('tab-sold');
+
     // Навигация (Категории шмота)
     if (categorySelect && outerwearBlock && pantsBlock) {
         categorySelect.addEventListener('change', (e) => {
@@ -237,6 +290,23 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // ЛОГИКА ТАБОВ: Слушаем клики по папкам «В наличии» и «Продано»
+    if (tabActive && tabSold) {
+        tabActive.addEventListener('click', () => {
+            window.currentWarehouseTab = 'active'; // Переключаем режим на активные
+            tabActive.classList.add('active');     // Зажигаем фиолетовый неон
+            tabSold.classList.remove('active');   // Гасим соседнюю кнопку
+            window.loadProducts();                // Перезапускаем сборщик карточек
+        });
+
+        tabSold.addEventListener('click', () => {
+            window.currentWarehouseTab = 'sold';   // Переключаем режим на проданные
+            tabSold.classList.add('active');       // Зажигаем фиолетовый неон
+            tabActive.classList.remove('active');  // Гасим соседнюю кнопку
+            window.loadProducts();                // Перезапускаем сборщик карточек
+        });
+    }
+
     // Фейс-контроль доступа к Админке дропов
     async function checkAdminAccess() {
         if (!btnToAdmin) return; 
@@ -261,16 +331,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // ГЛАВНЫЙ СБОРЩИК КАРТОЧЕК ДЛЯ СЕТКИ ОСТАТКОВ
+    // ГЛАВНЫЙ СБОРЩИК КАРТОЧЕК ДЛЯ СЕТКИ ОСТАТКОВ (С ДИНАМИЧЕСКИМ ФИЛЬТРОМ)
     window.loadProducts = async function() {
         const productsGrid = document.getElementById('products-list');
         if (!productsGrid) return;
 
         try {
+            // Запрашиваем товары, проверяя текущую активную папку
             const { data: products, error: prodError } = await supabaseClient
                 .from('products')
                 .select('*')
-                .eq('status', 'active') 
+                .eq('status', window.currentWarehouseTab || 'active') // Динамический статус!
                 .order('id', { ascending: false });
 
             if (prodError) throw prodError;
@@ -278,7 +349,9 @@ document.addEventListener('DOMContentLoaded', () => {
             window.currentProducts = products || [];
 
             if (!products || products.length === 0) {
-                productsGrid.innerHTML = '<p class="loading-text">СКЛАД ПУСТ</p>';
+                // Умный текст пустой папки
+                const emptyText = (window.currentWarehouseTab === 'sold') ? 'АРХИВ ПРОДАННЫХ ПУСТ' : 'СКЛАД ПУСТ';
+                productsGrid.innerHTML = `<p class="loading-text">${emptyText}</p>`;
                 return;
             }
 
@@ -299,10 +372,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         ? productVariants.map(v => `${v.size}: ${v.stock}шт`).join(' | ')
                         : 'Размеры не указаны';
 
-                    const isAvailable = totalStock > 0;
-                    const statusBadge = isAvailable 
-                        ? '<span class="status-badge in-stock">В НАЛИЧИИ</span>' 
-                        : '<span class="status-badge out-of-stock">РАСПРОДАНО</span>';
+                    // Настройка бэджика статуса шмотки на карточке
+                    let statusBadge = '';
+                    if ((window.currentWarehouseTab || 'active') === 'active') {
+                        statusBadge = totalStock > 0 
+                            ? '<span class="status-badge in-stock">В НАЛИЧИИ</span>' 
+                            : '<span class="status-badge out-of-stock">РАСПРОДАНО</span>';
+                    } else {
+                        statusBadge = '<span class="status-badge out-of-stock" style="background: #e53935; border-color: #ff1744;">ПРОДАНО</span>';
+                    }
 
                     const displayImgUrl = Array.isArray(product.image_url) 
                         ? product.image_url[0] 
@@ -324,7 +402,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     `;
 
-                    // Кнопка Узнать больше с жестким вызовом глобальной функции
+                    // Кнопка Узнать больше
                     const btnMore = document.createElement('button');
                     btnMore.className = 'btn-more';
                     btnMore.innerText = 'Узнать больше';
@@ -334,20 +412,37 @@ document.addEventListener('DOMContentLoaded', () => {
                         window.openProductModal(product.id);
                     });
 
-                    // Кнопка Продано с жестким вызовом глобальной функции
-                    const btnSold = document.createElement('button');
-                    btnSold.className = 'btn-sold';
-                    btnSold.innerText = 'Продано';
-                    btnSold.addEventListener('click', (event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        window.markAsSold(product.id);
-                    });
-
                     const buttonsContainer = card.querySelector('.card-buttons');
                     if (buttonsContainer) {
                         buttonsContainer.appendChild(btnMore);
-                        buttonsContainer.appendChild(btnSold);
+                        
+                        // ЕСЛИ ПАПКА "В НАЛИЧИИ" — вешаем кнопку "Продано"
+                        if ((window.currentWarehouseTab || 'active') === 'active') {
+                            const btnSold = document.createElement('button');
+                            btnSold.className = 'btn-sold';
+                            btnSold.innerText = 'Продано';
+                            btnSold.addEventListener('click', (event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                window.markAsSold(product.id);
+                            });
+                            buttonsContainer.appendChild(btnSold);
+                        } 
+                        // ЕСЛИ ПАПКА "ПРОДАНО" — вешаем зелёную кнопку возврата на витрину!
+                        else {
+                            const btnRestock = document.createElement('button');
+                            btnRestock.className = 'btn-sold';
+                            btnRestock.innerText = 'Выставить снова';
+                            btnRestock.style.background = '#00e676'; // Фирменный зелёный неон
+                            btnRestock.style.color = '#000';
+                            btnRestock.style.borderColor = '#00e676';
+                            btnRestock.addEventListener('click', (event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                window.markAsActive(product.id); // Эта функция вернет статус active
+                            });
+                            buttonsContainer.appendChild(btnRestock);
+                        }
                     }
 
                     productsGrid.appendChild(card);
@@ -410,7 +505,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         ? window.currentTemplateImageUrl 
                         : [window.currentTemplateImageUrl];
                 } else {
-                    window.showStatusModal('ВНИМАНИЕ', 'Пожалуйста, выберите хотя бы один файл фотографии!', false);
+                    window.showStatusModal('ВНИМАНИЕ', 'Пожалуйста, выберите хотя бы один file фотографии!', false);
                     return;
                 }
 
