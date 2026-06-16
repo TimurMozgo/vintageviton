@@ -800,15 +800,41 @@ body {
    ========================================================================== */
 @media screen and (max-width: 768px) {
     
-    body {
-        padding: 0;
-        margin: 0;
-        background-color: #f5f5f5;
-        -webkit-tap-highlight-color: transparent;
-        text-align: center !important; /* Центрируем весь текст на уровне тела */
+    html, body {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
 
-    /* ИСПРАВЛЕНО: Убрали display:flex, чтобы JS мог скрывать/показывать экраны */
+    body {
+        background-color: #f5f5f5;
+        -webkit-tap-highlight-color: transparent;
+        text-align: center !important; 
+    }
+
+    *, *:before, *:after {
+        box-sizing: border-box !important;
+        max-width: 100% !important; 
+    }
+
+  .neo-brand, .store-logo, .brand-logo, header img {
+      max-width: 100% !important; 
+      height: auto !important;     
+      box-sizing: border-box !important;
+      display: inline-block !important;
+      margin: 0 auto !important;   
+  }
+
+  @media screen and (max-width: 480px) {
+      .neo-brand, #store-title {
+          font-size: 28px !important; 
+          letter-spacing: 1px !important;
+          word-break: break-word !important; 
+      }
+  }
+
     .store-container, .admin-container, .container, .mobile-container, main {
         max-width: 100% !important;
         width: 100% !important;
@@ -824,7 +850,6 @@ body {
         width: 100% !important;
     }
 
-    /* Форма админки — выравниваем по центру */
     .neo-form {
         width: 100% !important;
         max-width: 100% !important;
@@ -850,6 +875,7 @@ body {
         width: 100% !important;
         justify-content: center !important;
         justify-items: center !important;
+        box-sizing: border-box !important;
     }
 
     /* Карточка товара */
@@ -861,6 +887,7 @@ body {
         display: flex !important;
         flex-direction: column !important;
         align-items: center !important;
+        box-sizing: border-box !important;
     }
 
     .product-img-wrapper, .product-image-holder {
