@@ -130,6 +130,19 @@
         </div>
     </div>
 
+    <div id="product-modal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; justify-content: center; align-items: center; padding: 16px; box-sizing: border-box;">
+        <div class="modal-content" style="background: #1e1e24; border: 1px solid #7c4dff; border-radius: 16px; width: 100%; max-width: 400px; padding: 20px; box-sizing: border-box; color: #fff;">
+            
+            <div id="modal-carousel" class="carousel" style="display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 8px; border-radius: 12px; margin-bottom: 16px;"></div>
+            
+            <h2 id="product-modal-title" style="margin: 0 0 8px 0; font-size: 20px; color: #fff;"></h2>
+            <div id="modal-price" style="font-size: 18px; font-weight: bold; color: #00e676; margin-bottom: 12px;"></div>
+            <p id="modal-desc" style="font-size: 14px; color: #b0bec5; margin: 0 0 20px 0; line-height: 1.4; max-height: 100px; overflow-y: auto;"></p>
+            
+            <button onclick="closeModal()" style="width: 100%; padding: 12px; background: #7c4dff; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">ЗАКРЫТЬ</button>
+        </div>
+    </div>
+
     <!-- Подключаем логику Supabase и обработчики событий -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 

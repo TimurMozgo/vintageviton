@@ -6,6 +6,101 @@ window.onerror = function(message, source, lineno, colno, error) {
     return false;
 };
 
+    // ==========================================
+    // 1. РЕНДЕР КАРТОЧЕК НА ВИТРИНЕ
+    // ==========================================
+    function renderProducts(products) {
+        const container = document.getElementById('products-list');
+        if (!container) return;
+
+        // Сохраняем глобально, чтобы модалка имела доступ к актуальным данным
+        window.currentProducts = products; 
+
+        if (!products || products.length === 0) {
+            container.innerHTML = '<p class="loading-text">СКЛАД ПУСТ ИЛИ ИДЕТ ЗАГРУЗКА...</p>';
+            return;
+        }
+
+        container.innerHTML = products.map(product => {
+            // Берем первую картинку для превью дропа
+            const firstImage = Array.isArray(product.image_url) ? product.image_url[0] : product.image_url;
+            const displayImage = firstImage || 'https://placehold.co/400x400?text=NO+IMAGE';
+
+            return `
+                <div class="product-card" style="background: #1e1e24; border: 1px solid #2d2d38; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; justify-content: space-between;">
+                    <img src="${displayImage}" alt="${product.name}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px;">
+                    <h3 style="margin: 10px 0 5px 0; font-size: 16px; color: #fff;">${product.name}</h3>
+                    <div style="color: #00e676; font-weight: bold; margin-bottom: 10px;">${product.price} UAH</div>
+                    
+                    <button onclick="window.openProductModal('${product.id}')" style="width: 100%; padding: 10px; background: #7c4dff; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">Узнать больше</button>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // ==========================================
+    // 2. ЛОГИКА ОТКРЫТИЯ МОДАЛКИ (С ПОЛНЫМ ДЕБАГОМ)
+    // ==========================================
+    window.openProductModal = function(productId) {
+        console.log("Клик сработал! Ищем товар с ID:", productId); // Увидим в консоли
+        
+        try {
+            if (!window.currentProducts || window.currentProducts.length === 0) {
+                alert("Ошибка: База товаров пуста или еще не подгрузилась.");
+                return;
+            }
+
+            const product = window.currentProducts.find(p => String(p.id) === String(productId));
+            
+            if (!product) {
+                alert(`Товар с ID ${productId} не найден в локальном кэше.`);
+                return;
+            }
+
+            // Вытягиваем элементы из HTML
+            const modalEl = document.getElementById('product-modal');
+            const carouselEl = document.getElementById('modal-carousel');
+            const titleEl = document.getElementById('product-modal-title'); // Новый айдишник из HTML
+            const priceEl = document.getElementById('modal-price');
+            const descEl = document.getElementById('modal-desc');
+
+            // Ловим жуков на лету, если HTML опять не совпадает
+            if (!modalEl) throw new Error("Нет контейнера 'product-modal'");
+            if (!carouselEl) throw new Error("Нет контейнера 'modal-carousel'");
+            if (!titleEl) throw new Error("Нет контейнера 'product-modal-title'");
+            if (!priceEl) throw new Error("Нет контейнера 'modal-price'");
+            if (!descEl) throw new Error("Нет контейнера 'modal-desc'");
+
+            // Рендерим галерею картинок дропа
+            const images = Array.isArray(product.image_url) ? product.image_url : [product.image_url];
+            carouselEl.innerHTML = images.map(url => `
+                <img src="${url}" style="flex: 0 0 100%; width: 100%; max-height: 280px; object-fit: cover; border-radius: 12px;" onerror="this.src='https://placehold.co/400x400?text=NO+IMAGE'">
+            `).join('');
+
+            // Заполняем текстовые поля шмотки
+            titleEl.innerText = product.name;
+            priceEl.innerText = `${product.price} UAH`;
+            descEl.innerText = product.description || 'Описание отсутствует.';
+
+            // Открываем модалку на экран
+            modalEl.style.display = 'flex';
+            console.log("Модальное окно успешно открыто!");
+
+        } catch (error) {
+            alert(`Критический стоп логики: ${error.message}`);
+        }
+    };
+
+    // ==========================================
+    // 3. ФУНКЦИЯ ЗАКРЫТИЯ МОДАЛКИ
+    // ==========================================
+    window.closeModal = function() {
+        const modalEl = document.getElementById('product-modal');
+        if (modalEl) {
+            modalEl.style.display = 'none';
+        }
+    };
+
 // Ждем, пока Телеграм полностью прогрузит весь HTML-скелет
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -35,6 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Глобальные переменные для хранения данных из заготовки
     window.currentTemplateImageUrl = null;
     window.currentTemplateDescription = null;
+    window.currentProducts = []; // Инициализируем пустой массив
 
 
     /* ==========================================================================
@@ -122,7 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     /* ==========================================================================
-       5. ЗАГРУЗКА И РЕНДЕРИНГ ОСТАТКОВ (ВИТРИНА)
+       5. ЗАГРУЗКА И РЕНДЕРИНГ ОСТАТКОВ (ВИТРИНА) - ИСПРАВЛЕННАЯ ВЕРСИЯ
        ========================================================================== */
     async function loadProducts() {
         if (!productsGrid) return;
@@ -131,9 +227,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const { data: products, error: prodError } = await supabaseClient
                 .from('products')
                 .select('*')
+                .eq('status', 'active') 
                 .order('id', { ascending: false });
 
             if (prodError) throw prodError;
+
+            // Сохраняем строго массив товаров в глобальный кэш
+            window.currentProducts = products || [];
 
             if (!products || products.length === 0) {
                 productsGrid.innerHTML = '<p class="loading-text">СКЛАД ПУСТ</p>';
@@ -149,7 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
             productsGrid.innerHTML = '';
 
             products.forEach(product => {
-                const productVariants = variants.filter(v => v.product_id === product.id);
+                const productVariants = variants.filter(v => String(v.product_id) === String(product.id));
                 const totalStock = productVariants.reduce((sum, v) => sum + (v.stock || 0), 0);
                 
                 const stockStatusLine = productVariants.length > 0 
@@ -165,12 +265,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     ? product.image_url[0] 
                     : product.image_url;
 
-                // Экранируем строку описания, чтобы не сломать onclick
-                const safeDescription = product.description ? product.description.replace(/'/g, "\\'").replace(/"/g, '\\"') : '';
-
                 const card = document.createElement('div');
                 card.className = 'product-card';
                 
+                // Исправлена структура: добавлен закрывающий тег </div> для .product-info
                 card.innerHTML = `
                     <div class="product-img-wrapper">
                         ${statusBadge}
@@ -182,9 +280,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         
                         <div class="stock-info-text">${stockStatusLine}</div>
                         
-                        <button class="template-btn" onclick="useAsTemplate('${product.name.replace(/'/g, "\\'")}', ${product.price}, '${JSON.stringify(product.image_url)}', '${safeDescription}')">
-                            ИСПОЛЬЗОВАТЬ КАК ЗАГОТОВКУ
-                        </button>
+                        <div class="card-buttons" style="display: flex; gap: 8px; margin-top: 12px;">
+                            <button class="btn-more" onclick="window.openProductModal('${product.id}')" style="flex: 1; padding: 10px; background: #5c6bc0; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
+                                Узнать больше
+                            </button>
+                            <button class="btn-sold" onclick="window.markAsSold('${product.id}')" style="flex: 1; padding: 10px; background: #e53935; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
+                                Продано
+                            </button>
+                        </div>
                     </div>
                 `;
                 productsGrid.appendChild(card);
@@ -194,7 +297,6 @@ document.addEventListener('DOMContentLoaded', () => {
             productsGrid.innerHTML = '<p class="loading-text">ОШИБКА ЗАГРУЗКИ СКЛАДА</p>';
         }
     }
-
 
     /* ==========================================================================
        6. РАБОТА С ЗАГОТОВКАМИ (МАГИЯ ШАБЛОНОВ)
@@ -229,12 +331,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     /* ==========================================================================
-       7. ОБРАБОТКА ФОРМЫ И ДРОП В БАЗУ (МУЛЬТИЗАГРУЗКА КАРТИНОК + n8n)
+       7. ОБРАБОТКА ФОРМЫ И ДРОП В БАЗУ
        ========================================================================== */
     const form = document.getElementById('add-product-form');
     if (form) {
         form.addEventListener('submit', async (e) => {
-            e.preventDefault(); // Намертво блокируем перезагрузку страницы приложения!
+            e.preventDefault(); 
 
             const nameInput = document.getElementById('prod-name');
             const priceInput = document.getElementById('prod-price');
@@ -251,7 +353,6 @@ document.addEventListener('DOMContentLoaded', () => {
             let imageUrls = []; 
 
             try {
-                // 7.1. Мультизагрузка фоток в Supabase Storage
                 if (imageFiles && imageFiles.length > 0) {
                     for (let i = 0; i < imageFiles.length; i++) {
                         const file = imageFiles[i];
@@ -282,7 +383,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
 
-                // 7.2. Пушим запись в 'products'
                 const { data: productData, error: productError } = await supabaseClient
                     .from('products')
                     .insert([{ 
@@ -297,7 +397,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (productError) throw productError;
                 const productId = productData.id;
 
-                // 7.3. Сбор размерной сетки
                 const activeBlock = category === 'outerwear' ? outerwearBlock : pantsBlock;
                 const variantsToInsert = [];
 
@@ -326,7 +425,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (variantsError) throw variantsError;
                 }
 
-                // 7.4. Отправка полного пакета данных Аудитору в n8n
                 try {
                     const activeSizesText = variantsToInsert
                         .map(v => `${v.size}: ${v.stock}шт`)
@@ -353,10 +451,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.error('Ошибка n8n:', n8nErr.message);
                 }
 
-                // ОКНО УСПЕХА
                 showStatusModal('УСПЕХ!', 'ДРОП И ВСЕ ОСТАТКИ УСПЕШНО СОХРАНЕНЫ!', true);
                 
-                // Полный сброс формы и переменных
                 form.reset();
                 window.currentTemplateImageUrl = null;
                 
@@ -366,22 +462,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
             } catch (err) {
-                // ОКНО КРАША С ПЕРЕДАЧЕЙ ОШИБКИ ИЗ БАЗЫ
                 showStatusModal('ОШИБКА ОПЕРАЦИИ', err.message, false);
             }
         });
-    } else {
-        alert("ОШИБКА ДЕБАГА: Форма #add-product-form не найдена в HTML!");
     }
 
 
     /* ==========================================================================
-       8. КАСТОМНЫЕ МОДАЛЬНЫЕ ОКНА (ПЛАШКИ) И АВТОЗАПУСК
+       8. ВСПЛЫВАЮЩИЕ ОКНА, ДЕТАЛИ И ЭКСПОРТ ДЛЯ ИНТЕРФЕЙСА
        ========================================================================== */
     function showStatusModal(title, message, isSuccess = true) {
         const modal = document.getElementById('custom-modal');
         if (!modal) {
-            alert(`Запасной вывод (нет модалки в HTML):\n${title} - ${message}`);
+            alert(`${title} - ${message}`);
             return;
         }
         
@@ -394,22 +487,95 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (modalContent) {
             modalContent.classList.remove('modal-success', 'modal-error');
-            modalContent.classList.add(isSuccess ? 'modal-success' : 'modal-error');
+            document.getElementById('modal-close-btn').style.background = isSuccess ? '#00e676' : '#e53935';
         }
         
         modal.classList.add('active');
     }
 
-    // Вешаем закрытие окна на кнопку
     const modalCloseBtn = document.getElementById('modal-close-btn');
     if (modalCloseBtn) {
         modalCloseBtn.addEventListener('click', () => {
             const modal = document.getElementById('custom-modal');
-            if (modal) modal.classList.remove('active');
+            if (modal) modal.remove();
         });
     }
 
-    // Запуск фоновых проверок и отрисовки склада при старте
+    // ЛОГИКА КНОПКИ "ПРОДАНО" (Экспортируем в window)
+    window.markAsSold = function(productId) {
+        if (window.Telegram && window.Telegram.WebApp) {
+            window.Telegram.WebApp.showPopup({
+                title: 'Аудит склада',
+                message: 'Перенести этот товар в архив проданных?',
+                buttons: [
+                    { id: 'yes', type: 'destructive', text: 'Да, продано' },
+                    { id: 'no', type: 'cancel', text: 'Отмена' }
+                ]
+            }, async (buttonId) => {
+                if (buttonId === 'yes') {
+                    await executeMarkAsSold(productId);
+                }
+            });
+        } else {
+            if (confirm('Перенести в проданные?')) {
+                executeMarkAsSold(productId);
+            }
+        }
+    };
+
+    async function executeMarkAsSold(productId) {
+        try {
+            const { error } = await supabaseClient
+                .from('products')
+                .update({ status: 'sold' })
+                .eq('id', productId);
+
+            if (error) throw error;
+
+            if (window.Telegram && window.Telegram.WebApp) {
+                window.Telegram.WebApp.showAlert('Товар успешно списан!');
+            }
+            loadProducts(); 
+        } catch (err) {
+            alert('Ошибка смены статуса: ' + err.message);
+        }
+    }
+
+    // ЛОГИКА КНОПКИ "УЗНАТЬ БОЛЬШЕ" (Экспортируем в window + убираем жесткое сравнение)
+    window.openProductModal = function(productId) {
+        if (!window.currentProducts || window.currentProducts.length === 0) {
+            alert("Массив товаров пуст. Дождись загрузки витрины.");
+            return;
+        }
+
+        // Кастуем оба ID к строке String(), чтобы избежать несовпадения типов int и string!
+        const product = window.currentProducts.find(p => String(p.id) === String(productId));
+        
+        if (!product) {
+            alert(`Критический сбой: Товар с ID ${productId} не найден на складе!`);
+            return;
+        }
+
+        const images = Array.isArray(product.image_url) ? product.image_url : [product.image_url];
+        
+        const carouselHtml = images.map(url => `
+            <img src="${url}" class="carousel-item" style="flex: 0 0 100%; width: 100%; max-height: 280px; object-fit: cover; border-radius: 12px;" alt="Дроп" onerror="this.src='https://placehold.co/400x400?text=NO+IMAGE'">
+        `).join('');
+
+        // Набиваем уникальные элементы данными
+        document.getElementById('modal-carousel').innerHTML = carouselHtml;
+        document.getElementById('product-modal-title').innerText = product.name;
+        document.getElementById('modal-price').innerText = `${product.price} UAH`;
+        document.getElementById('modal-desc').innerText = product.description || 'Описание отсутствует.';
+
+        document.getElementById('product-modal').style.display = 'flex';
+    };
+
+    window.closeModal = function() {
+        document.getElementById('product-modal').style.display = 'none';
+    };
+
+    // Автозапуск
     loadProducts();
     checkAdminAccess();
 });
