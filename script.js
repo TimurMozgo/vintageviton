@@ -409,7 +409,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     btnMore.addEventListener('click', (event) => {
                         event.preventDefault();
                         event.stopPropagation();
-                        window.openProductModal(product.id);
+                        
+                        // ТЕСТ-АЛЕРТ: Проверяем, реагирует ли кнопка в Mini App
+                        alert("Клик пойман! Отправляем в модалку ID: " + product.id);
+                        
+                        // Передаем строго как строку, чтобы не было конфликтов типов данных
+                        window.openProductModal(String(product.id));
                     });
 
                     const buttonsContainer = card.querySelector('.card-buttons');
