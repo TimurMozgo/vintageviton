@@ -614,7 +614,7 @@ body {
 }
 
 /* ==========================================================================
-   СТИЛИ ДЛЯ ПЛАВНОГО МОДАЛЬНОГО ОКНА
+   СТИЛИ ДЛЯ ПЛАВНОГО МОДАЛЬНОГО ОКНА И КАPУСЕЛИ ТОВАРА
    ========================================================================== */
 .modal-overlay {
     position: fixed;
@@ -704,7 +704,80 @@ body {
     color: #ff3333;
 }
 
+/* ==========================================================================
+   НОВЫЕ СТИЛИ ДЛЯ ИНТЕРФЕЙСА СТPОКИ ПОИСКА И МОДАЛКИ ДЕТАЛЕЙ ТОВАРА
+   ========================================================================== */
 
+/* Контейнер для карусели картинок внутри карточки товара */
+#modal-carousel {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    width: 100%;
+    border-radius: 12px;
+}
+
+/* Прячем дефолтный уродливый скролл под картинками */
+#modal-carousel::-webkit-scrollbar {
+    display: none; 
+}
+
+/* Контейнер неоновых точек под фоткой */
+.carousel-dots {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin: 10px 0 15px 0;
+    width: 100%;
+}
+
+.carousel-dots .dot {
+    width: 8px;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+/* Активная точка горит фиолетовым неоном и расширяется */
+.carousel-dots .dot.active {
+    background: #b388ff;
+    width: 20px; 
+    border-radius: 4px;
+    box-shadow: 0 0 8px #b388ff;
+}
+
+/* ВЫДЕЛЕННЫЙ БЛОК ДЛЯ ПОДРОБНОГО ОПИСАНИЯ ШМОТКИ */
+.desc-scroll-box {
+    background: #111111; /* Глубокий темный фон под стиль витрины */
+    border: 1px solid rgba(179, 136, 255, 0.2); /* Легкая неоновая рамка */
+    border-radius: 10px;
+    padding: 12px 14px;
+    max-height: 140px; /* Ограничение высоты, чтобы принудительно вызывать скролл */
+    overflow-y: auto; /* Вертикальный скролл */
+    font-size: 13px;
+    line-height: 1.5;
+    color: #e0e0e0;
+    text-align: left;
+    box-sizing: border-box;
+}
+
+/* КАСТОМНЫЙ НЕОНОВЫЙ СКРОЛЛБАР ДЛЯ БЛОКА ОПИСАНИЯ */
+.desc-scroll-box::-webkit-scrollbar {
+    width: 4px; /* Тонкий и аккуратный */
+}
+
+.desc-scroll-box::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.03); /* Дорожка ползунка */
+    border-radius: 10px;
+}
+
+.desc-scroll-box::-webkit-scrollbar-thumb {
+    background: #b388ff; /* Ползунок горит фиолетовым */
+    border-radius: 10px;
+    box-shadow: 0 0 5px #b388ff;
+}
 /* ==========================================================================
    7. АНИМАЦИИ И ЭФФЕКТЫ
    ========================================================================== */

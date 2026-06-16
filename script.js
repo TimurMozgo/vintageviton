@@ -32,7 +32,7 @@ window.openProductModal = function(productId) {
     // Проверка 1: Загружен ли кэш товаров
     if (!window.currentProducts || window.currentProducts.length === 0) {
         if (window.Telegram && window.Telegram.WebApp) {
-            window.Telegram.WebApp.showAlert("Массив товаров пуст. Дождись полной загрузки витрины.");
+            window.Telegram.WebApp.showAlert("Массив товаров пуст. Дождись полной加载 витрины.");
         } else {
             alert("Массив товаров пуст. Дождись загрузки витрины.");
         }
@@ -85,21 +85,54 @@ window.openProductModal = function(productId) {
         <img src="${url}" class="carousel-item" style="flex: 0 0 100%; width: 100%; max-height: 280px; object-fit: cover; border-radius: 12px;" alt="Дроп" onerror="this.src='https://placehold.co/400x400?text=NO+IMAGE'">
     `).join('');
 
-    // Наполняем модалку актуальными данными из базы
+    // === ДОБАВЛЕНО: АВТО-ГЕНЕРАЦИЯ ТОЧЕК ДЛЯ СКРОЛЛА КАРТИНOК ===
+    let dotsContainer = document.getElementById('modal-dots');
+    if (!dotsContainer) {
+        dotsContainer = document.createElement('div');
+        dotsContainer.id = 'modal-dots';
+        dotsContainer.className = 'carousel-dots';
+        carouselEl.after(dotsContainer); // Аккуратно сажаем сразу под карусель
+    }
+    
+    // Создаем точки (первая сразу горит как активная)
+    dotsContainer.innerHTML = images.map((_, index) => `
+        <span class="dot ${index === 0 ? 'active' : ''}"></span>
+    `).join('');
+
+    // Переключение активной точки при скролле пальцем в Телеге
+    carouselEl.onscroll = () => {
+        const scrollIndex = Math.round(carouselEl.scrollLeft / carouselEl.offsetWidth);
+        const dots = dotsContainer.querySelectorAll('.dot');
+        dots.forEach((dot, idx) => {
+            if (idx === scrollIndex) dot.classList.add('active');
+            else dot.classList.remove('active');
+        });
+    };
+    // ========================================================
+
+    // Наполнили заголовки
     titleEl.innerText = product.name;
     priceEl.innerText = `${product.price} UAH`;
-    descEl.innerText = product.description || 'Описание отсутствует.';
+    
+    // === ДОБАВЛЕНО: ОБЕРТКА ОПИСАНИЯ В ОТДЕЛЬНЫЙ СЛУЖЕБНЫЙ БЛОК С КАСTОМНЫМ СКРОЛЛОМ ===
+    descEl.innerHTML = `<div class="desc-scroll-box">${product.description || 'Описание отсутствует.'}</div>`;
 
     // Открываем окно на мобилках красиво и четко
     modalEl.style.setProperty('display', 'flex', 'important');
-    modalEl.classList.add('active'); // На случай, если у тебя анимация открытия через класс .active в CSS
+    modalEl.classList.add('active'); 
 };
 
-// 2. ЗАКРЫТИЕ МОДАЛКИ ТОВАРA
+// 2. ЗАКРЫТИЕ МОДАЛКИ ТОВАРA — С ЗАЩИТОЙ ОТ КРАШЕЙ
 window.closeModal = function() {
     const modalEl = document.getElementById('product-modal');
+    
+    // Если элемент вообще существует в HTML, мягко тушим его
     if (modalEl) {
-        modalEl.style.display = 'none';
+        // Защищаем от падения: проверяем, есть ли свойство style
+        if (modalEl.style) {
+            modalEl.style.display = 'none';
+        }
+        // Убираем класс active, если анимация завязана на него
         modalEl.classList.remove('active');
     }
 };
@@ -443,10 +476,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         event.preventDefault();
                         event.stopPropagation();
                         
-                        // ТЕСТ-АЛЕРТ: Проверяем, реагирует ли кнопка в Mini App
-                        alert("Клик пойман! Отправляем в модалку ID: " + product.id);
-                        
-                        // Передаем строго как строку, чтобы не было конфликтов типов данных
                         window.openProductModal(String(product.id));
                     });
 
