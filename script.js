@@ -27,7 +27,7 @@ window.currentWarehouseTab = 'active';
    ГЛOБАЛЬНЫЕ ФУНКЦИИ ИНТЕРФЕЙСА (ДОСТУПНЫ ИЗ ЛЮБОЙ ТОЧКИ И КОЛБЭКОВ ТГ)
    ========================================================================== */
 
-// 1. ЛОГИКА КНОПКИ "УЗНАТЬ БОЛЬШЕ" — ИДЕАЛЬНЫЙ СТРУКТУРНЫЙ ИНТЕРФЕЙС И ЗАЩИТА ОТ КРАШЕЙ
+// 1. ЛОГИКА КНОПКИ "УЗНАТЬ БОЛЬШЕ" — С КНОПКОЙ НАДПИСИ И ЗАЩИТОЙ ОТ КРАШЕЙ
 window.openProductModal = function(productId) {
     // Проверка 1: Загружен ли кэш товаров
     if (!window.currentProducts || window.currentProducts.length === 0) {
@@ -39,7 +39,7 @@ window.openProductModal = function(productId) {
         return;
     }
 
-    // Жесткий поиск по ID с приведением к строке и нижнему регистру (чтобы UUID из Supabase не терялся)
+    // Жесткий поиск по ID с приведением к строке и нижнему регистру
     const product = window.currentProducts.find(p => String(p.id).toLowerCase() === String(productId).toLowerCase());
     
     // Проверка 2: Нашелся ли товар на складе
@@ -91,7 +91,7 @@ window.openProductModal = function(productId) {
         dotsContainer = document.createElement('div');
         dotsContainer.id = 'modal-dots';
         dotsContainer.className = 'carousel-dots';
-        carouselEl.after(dotsContainer); // Аккуратно сажаем сразу под карусель
+        carouselEl.after(dotsContainer);
     }
     
     dotsContainer.innerHTML = images.map((_, index) => `
@@ -106,26 +106,52 @@ window.openProductModal = function(productId) {
             else dot.classList.remove('active');
         });
     };
-    // ========================================================
 
-    // Вставляем имя товара наверх
+    // Наполняем заголовок
     titleEl.innerText = product.name;
     
-    // === МЕНЯЕМ МЕСТАМИ И ПЕРЕНOСИМ ОПИСАНИЕ НАВЕРХ ===
-    // max-height: none и overflow: visible убирают ограничение скроллбара, раскрывая замеры полностью
-    descEl.innerHTML = `<div class="desc-scroll-box" style="max-height: none; overflow: visible; margin-bottom: 15px;">${product.description || 'Описание отсутствует.'}</div>`;
+    // === ДИНАМИЧЕСКОЕ ОПИСАНИЕ С КНОПКОЙ "ПОКАЗАТЬ ПОЛНОСТЬЮ" ===
+    const fullText = product.description || 'Описание отсутствует.';
+    
+    // Рендерим контейнер с текстом и скрытой кнопкой
+    descEl.innerHTML = `
+        <div class="desc-wrapper">
+            <div class="desc-scroll-box short-view" id="modal-desc-box">${fullText}</div>
+            <div class="toggle-desc-btn" id="modal-desc-toggle" style="display: none;">Развернуть описание ↓</div>
+        </div>
+    `;
 
-    // === ЦЕНУ ОПУСКАЕМ ПОД ОПИСАНИЕ ===
+    const descBox = document.getElementById('modal-desc-box');
+    const descToggle = document.getElementById('modal-desc-toggle');
+
+    // Проверяем, превышает ли текст высоту компактного вида (90px)
+    if (descBox.scrollHeight > 90) {
+        descToggle.style.display = 'block'; // Показываем кнопку, если текст большой
+        
+        descToggle.onclick = function(e) {
+            e.stopPropagation(); // Защита от краша 738/747
+            if (descBox.classList.contains('short-view')) {
+                descBox.classList.remove('short-view');
+                descBox.classList.add('full-view');
+                descToggle.innerText = 'Свернуть описание ↑';
+            } else {
+                descBox.classList.remove('full-view');
+                descBox.classList.add('short-view');
+                descToggle.innerText = 'Развернуть описание ↓';
+            }
+        };
+    }
+
+    // Цену опускаем ниже описания
     priceEl.innerText = `${product.price} UAH`;
 
-    // === ЖЕЛЕЗНАЯ ЗАЩИТА ОТ КРАШЕЙ ТЕЛЕГИ (ОШИБКА 738) ===
-    // Ловим контейнер контента и глушим всплытие кликов по картинкам и тексту
+    // === БЕЗОПАСНАЯ ИЗОЛЯЦИЯ КЛИКОВ ВНУТРИ МОДАЛКИ ===
     const modalContentEl = modalEl.querySelector('.modal-content') || modalEl;
     modalContentEl.onclick = function(event) {
-        event.stopPropagation(); // Клик внутри модалки больше не улетает на задний план!
+        event.stopPropagation(); // Клик внутри окна не улетает наружу
     };
 
-    // Открываем окно на мобилках красиво и четко
+    // Открываем окно через класс (безопасно для мобилок)
     modalEl.style.setProperty('display', 'flex', 'important');
     modalEl.classList.add('active'); 
 };

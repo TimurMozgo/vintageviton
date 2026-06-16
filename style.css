@@ -749,17 +749,62 @@ body {
 }
 
 /* ВЫДЕЛЕННЫЙ БЛОК ДЛЯ ПОДРОБНОГО ОПИСАНИЯ ШМОТКИ */
+.desc-wrapper {
+    width: 100%;
+    margin-bottom: 15px; /* Отступ снизу, чтобы цена не липла */
+    box-sizing: border-box;
+}
+
+/* Сам бокс с текстом */
 .desc-scroll-box {
     background: #111111; /* Глубокий темный фон под стиль витрины */
     border: 1px solid rgba(179, 136, 255, 0.2); /* Легкая неоновая рамка */
     border-radius: 10px;
     padding: 14px;
-    margin-bottom: 15px; /* Отступ снизу, чтобы цена не липла */
     font-size: 13px;
     line-height: 1.5;
     color: #e0e0e0;
     text-align: left;
     box-sizing: border-box;
+    transition: max-height 0.3s ease-in-out;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Компактный вид: аккуратно подрезает длинные замеры шмотки */
+.desc-scroll-box.short-view {
+    max-height: 90px;
+    /* Мягкое размытие текста внизу — намек, что можно раскрыть */
+    mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+}
+
+/* Полный вид: открывает весь текст без остатка */
+.desc-scroll-box.full-view {
+    max-height: 1000px; /* С запасом под любое описание */
+    mask-image: none;
+    -webkit-mask-image: none;
+    overflow-y: auto; /* Если текст совсем гигантский — включится аккуратный скролл */
+}
+
+/* КНОПКА ДЛЯ РАЗВЕРТЫВАНИЯ (Прямо под боксом) */
+.toggle-desc-btn {
+    font-family: monospace;
+    font-size: 12px;
+    color: #b388ff; /* Фиолетовый неон */
+    text-shadow: 0 0 5px rgba(179, 136, 255, 0.4);
+    cursor: pointer;
+    text-align: center;
+    margin-top: 8px;
+    font-weight: bold;
+    text-transform: uppercase;
+    padding: 6px 0;
+    width: 100%;
+    display: block;
+}
+
+.toggle-desc-btn:active {
+    color: #00ff88; /* При тапе загорается зеленым неоном */
 }
 
 /* КАСТОМНЫЙ НЕОНОВЫЙ СКРОЛЛБАР ДЛЯ БЛОКА ОПИСАНИЯ */
