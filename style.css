@@ -753,9 +753,8 @@ body {
     background: #111111; /* Глубокий темный фон под стиль витрины */
     border: 1px solid rgba(179, 136, 255, 0.2); /* Легкая неоновая рамка */
     border-radius: 10px;
-    padding: 12px 14px;
-    max-height: 140px; /* Ограничение высоты, чтобы принудительно вызывать скролл */
-    overflow-y: auto; /* Вертикальный скролл */
+    padding: 14px;
+    margin-bottom: 15px; /* Отступ снизу, чтобы цена не липла */
     font-size: 13px;
     line-height: 1.5;
     color: #e0e0e0;

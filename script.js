@@ -27,12 +27,12 @@ window.currentWarehouseTab = 'active';
    ГЛOБАЛЬНЫЕ ФУНКЦИИ ИНТЕРФЕЙСА (ДОСТУПНЫ ИЗ ЛЮБОЙ ТОЧКИ И КОЛБЭКОВ ТГ)
    ========================================================================== */
 
-// 1. ЛОГИКА КНОПКИ "УЗНАТЬ БОЛЬШЕ" — АДАПТИРОВАНО ДЛЯ TELEGRAM MINI APP
+// 1. ЛОГИКА КНОПКИ "УЗНАТЬ БОЛЬШЕ" — ИДЕАЛЬНЫЙ СТРУКТУРНЫЙ ИНТЕРФЕЙС И ЗАЩИТА ОТ КРАШЕЙ
 window.openProductModal = function(productId) {
     // Проверка 1: Загружен ли кэш товаров
     if (!window.currentProducts || window.currentProducts.length === 0) {
         if (window.Telegram && window.Telegram.WebApp) {
-            window.Telegram.WebApp.showAlert("Массив товаров пуст. Дождись полной加载 витрины.");
+            window.Telegram.WebApp.showAlert("Массив товаров пуст. Дождись полной загрузки витрины.");
         } else {
             alert("Массив товаров пуст. Дождись загрузки витрины.");
         }
@@ -85,7 +85,7 @@ window.openProductModal = function(productId) {
         <img src="${url}" class="carousel-item" style="flex: 0 0 100%; width: 100%; max-height: 280px; object-fit: cover; border-radius: 12px;" alt="Дроп" onerror="this.src='https://placehold.co/400x400?text=NO+IMAGE'">
     `).join('');
 
-    // === ДОБАВЛЕНО: АВТО-ГЕНЕРАЦИЯ ТОЧЕК ДЛЯ СКРОЛЛА КАРТИНOК ===
+    // === АВТО-ГЕНЕРАЦИЯ ТОЧЕК ДЛЯ СКРОЛЛА КАРТИНOК ===
     let dotsContainer = document.getElementById('modal-dots');
     if (!dotsContainer) {
         dotsContainer = document.createElement('div');
@@ -94,12 +94,10 @@ window.openProductModal = function(productId) {
         carouselEl.after(dotsContainer); // Аккуратно сажаем сразу под карусель
     }
     
-    // Создаем точки (первая сразу горит как активная)
     dotsContainer.innerHTML = images.map((_, index) => `
         <span class="dot ${index === 0 ? 'active' : ''}"></span>
     `).join('');
 
-    // Переключение активной точки при скролле пальцем в Телеге
     carouselEl.onscroll = () => {
         const scrollIndex = Math.round(carouselEl.scrollLeft / carouselEl.offsetWidth);
         const dots = dotsContainer.querySelectorAll('.dot');
@@ -110,30 +108,41 @@ window.openProductModal = function(productId) {
     };
     // ========================================================
 
-    // Наполнили заголовки
+    // Вставляем имя товара наверх
     titleEl.innerText = product.name;
-    priceEl.innerText = `${product.price} UAH`;
     
-    // === ДОБАВЛЕНО: ОБЕРТКА ОПИСАНИЯ В ОТДЕЛЬНЫЙ СЛУЖЕБНЫЙ БЛОК С КАСTОМНЫМ СКРОЛЛОМ ===
-    descEl.innerHTML = `<div class="desc-scroll-box">${product.description || 'Описание отсутствует.'}</div>`;
+    // === МЕНЯЕМ МЕСТАМИ И ПЕРЕНOСИМ ОПИСАНИЕ НАВЕРХ ===
+    // max-height: none и overflow: visible убирают ограничение скроллбара, раскрывая замеры полностью
+    descEl.innerHTML = `<div class="desc-scroll-box" style="max-height: none; overflow: visible; margin-bottom: 15px;">${product.description || 'Описание отсутствует.'}</div>`;
+
+    // === ЦЕНУ ОПУСКАЕМ ПОД ОПИСАНИЕ ===
+    priceEl.innerText = `${product.price} UAH`;
+
+    // === ЖЕЛЕЗНАЯ ЗАЩИТА ОТ КРАШЕЙ ТЕЛЕГИ (ОШИБКА 738) ===
+    // Ловим контейнер контента и глушим всплытие кликов по картинкам и тексту
+    const modalContentEl = modalEl.querySelector('.modal-content') || modalEl;
+    modalContentEl.onclick = function(event) {
+        event.stopPropagation(); // Клик внутри модалки больше не улетает на задний план!
+    };
 
     // Открываем окно на мобилках красиво и четко
     modalEl.style.setProperty('display', 'flex', 'important');
     modalEl.classList.add('active'); 
 };
 
-// 2. ЗАКРЫТИЕ МОДАЛКИ ТОВАРA — С ЗАЩИТОЙ ОТ КРАШЕЙ
+// 2. ЗАКРЫТИЕ МОДАЛКИ ТОВАРA — МАКСИМАЛЬНАЯ ЗАЩИТА
 window.closeModal = function() {
     const modalEl = document.getElementById('product-modal');
     
-    // Если элемент вообще существует в HTML, мягко тушим его
     if (modalEl) {
-        // Защищаем от падения: проверяем, есть ли свойство style
-        if (modalEl.style) {
-            modalEl.style.display = 'none';
-        }
-        // Убираем класс active, если анимация завязана на него
         modalEl.classList.remove('active');
+        
+        // Безопасное скрытие через таймаут, чтобы плавная анимация успела отработать
+        setTimeout(() => {
+            if (modalEl && modalEl.style) {
+                modalEl.style.setProperty('display', 'none', 'important');
+            }
+        }, 200);
     }
 };
 
