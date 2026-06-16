@@ -106,6 +106,64 @@ body {
   box-shadow: var(--shadow-active);
 }
 
+/* ==========================================================================
+   СТИЛИ ДЛЯ ДИНАМИЧЕСКИХ КНОПОК КАРТОЧКИ (ФИКС КЛИКА)
+   ========================================================================== */
+
+/* Контейнер для кнопок внутри инфо-блока карточки */
+.card-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+    position: relative;
+    z-index: 99; /* Поднимаем кнопки над ховером самой карточки */
+}
+
+/* Кнопка "Узнать больше" */
+.btn-more {
+    flex: 1;
+    padding: 12px 8px;
+    background: #7c4dff !important; /* Твой фирменный фиолетовый */
+    color: #ffffff !important;
+    border: 2px solid #000000 !important;
+    border-radius: 8px;
+    font-weight: bold;
+    font-family: monospace;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: transform 0.1s ease, background-color 0.2s ease;
+    box-shadow: 3px 3px 0px #000; /* Брутальная тень в стиле нео-брутализма */
+}
+
+/* Эффект нажатия для "Узнать больше" */
+.btn-more:active {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0px #000;
+    background: #651fff !important;
+}
+
+/* Кнопка "Продано" (для админа / статуса) */
+.btn-sold {
+    flex: 1;
+    padding: 12px 8px;
+    background: #ff1744 !important; /* Насыщенный красный */
+    color: #ffffff !important;
+    border: 2px solid #000000 !important;
+    border-radius: 8px;
+    font-weight: bold;
+    font-family: monospace;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: transform 0.1s ease, background-color 0.2s ease;
+    box-shadow: 3px 3px 0px #000;
+}
+
+/* Эффект нажатия для "Продано" */
+.btn-sold:active {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0px #000;
+    background: #d50000 !important;
+}
 
 /* ==========================================================================
    4. ВИТРИНА МАГАЗИНА (КАТАЛОГ ОСТАТКОВ СТРИТВИРА)

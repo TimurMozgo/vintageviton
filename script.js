@@ -6,107 +6,176 @@ window.onerror = function(message, source, lineno, colno, error) {
     return false;
 };
 
-    // ==========================================
-    // 1. РЕНДЕР КАРТОЧЕК НА ВИТРИНЕ
-    // ==========================================
-    function renderProducts(products) {
-        const container = document.getElementById('products-list');
-        if (!container) return;
+// ХАРДКОРНЫЙ ПЕРЕХВАТ СЕТЕВЫХ ОШИБОК (Supabase, Базы данных, CORS)
+window.addEventListener('unhandledrejection', function (event) {
+    const errorReason = event.reason;
+    alert(`СЕТЕВОЙ КРАШ (Supabase/Сеть):\nПричина: ${errorReason?.message || errorReason || 'Неизвестная ошибка сети'}`);
+});
 
-        // Сохраняем глобально, чтобы модалка имела доступ к актуальным данным
-        window.currentProducts = products; 
+// Глобальный кэш для товаров, доступный всем окнам и модалкам
+window.currentProducts = [];
+window.currentTemplateImageUrl = null;
+window.currentTemplateDescription = null;
 
-        if (!products || products.length === 0) {
-            container.innerHTML = '<p class="loading-text">СКЛАД ПУСТ ИЛИ ИДЕТ ЗАГРУЗКА...</p>';
-            return;
-        }
+// Глобальный клиент Supabase (инициализируется при загрузке DOM)
+let supabaseClient = null;
 
-        container.innerHTML = products.map(product => {
-            // Берем первую картинку для превью дропа
-            const firstImage = Array.isArray(product.image_url) ? product.image_url[0] : product.image_url;
-            const displayImage = firstImage || 'https://placehold.co/400x400?text=NO+IMAGE';
+/* ==========================================================================
+   ГЛOБАЛЬНЫЕ ФУНКЦИИ ИНТЕРФЕЙСА (ДОСТУПНЫ ИЗ ЛЮБОЙ ТОЧКИ И КОЛБЭКОВ ТГ)
+   ========================================================================== */
 
-            return `
-                <div class="product-card" style="background: #1e1e24; border: 1px solid #2d2d38; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; justify-content: space-between;">
-                    <img src="${displayImage}" alt="${product.name}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px;">
-                    <h3 style="margin: 10px 0 5px 0; font-size: 16px; color: #fff;">${product.name}</h3>
-                    <div style="color: #00e676; font-weight: bold; margin-bottom: 10px;">${product.price} UAH</div>
-                    
-                    <button onclick="window.openProductModal('${product.id}')" style="width: 100%; padding: 10px; background: #7c4dff; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">Узнать больше</button>
-                </div>
-            `;
-        }).join('');
+// 1. ЛОГИКА КНОПКИ "УЗНАТЬ БОЛЬШЕ"
+window.openProductModal = function(productId) {
+    if (!window.currentProducts || window.currentProducts.length === 0) {
+        alert("Массив товаров пуст. Дождись загрузки витрины.");
+        return;
     }
 
-    // ==========================================
-    // 2. ЛОГИКА ОТКРЫТИЯ МОДАЛКИ (С ПОЛНЫМ ДЕБАГОМ)
-    // ==========================================
-    window.openProductModal = function(productId) {
-        console.log("Клик сработал! Ищем товар с ID:", productId); // Увидим в консоли
+    const product = window.currentProducts.find(p => String(p.id) === String(productId));
+    
+    if (!product) {
+        alert(`Критический сбой: Товар с ID ${productId} не найден на складе!`);
+        return;
+    }
+
+    const modalEl = document.getElementById('product-modal');
+    const carouselEl = document.getElementById('modal-carousel');
+    const titleEl = document.getElementById('product-modal-title');
+    const priceEl = document.getElementById('modal-price');
+    const descEl = document.getElementById('modal-desc');
+
+    if (!modalEl || !carouselEl || !titleEl || !priceEl || !descEl) {
+        alert("Ошибка: В HTML не найдены элементы структуры модального окна!");
+        return;
+    }
+
+    const images = Array.isArray(product.image_url) ? product.image_url : [product.image_url];
+    
+    carouselEl.innerHTML = images.map(url => `
+        <img src="${url}" class="carousel-item" style="flex: 0 0 100%; width: 100%; max-height: 280px; object-fit: cover; border-radius: 12px;" alt="Дроп" onerror="this.src='https://placehold.co/400x400?text=NO+IMAGE'">
+    `).join('');
+
+    titleEl.innerText = product.name;
+    priceEl.innerText = `${product.price} UAH`;
+    descEl.innerText = product.description || 'Описание отсутствует.';
+
+    modalEl.style.display = 'flex';
+};
+
+// 2. ЗАКРЫТИЕ МОДАЛКИ Товара
+window.closeModal = function() {
+    const modalEl = document.getElementById('product-modal');
+    if (modalEl) modalEl.style.display = 'none';
+};
+
+// 3. ЛОГИКА КНОПКИ "ПРОДАНО" — ИСПРАВЛЕНА ДЛЯ ТЕЛЕГРАМА
+window.markAsSold = function(productId) {
+    if (window.Telegram && window.Telegram.WebApp && typeof window.Telegram.WebApp.showPopup === 'function') {
+        window.Telegram.WebApp.showPopup({
+            title: 'Аудит склада',
+            message: 'Перенести этот товар в архив проданных?',
+            buttons: [
+                { id: 'yes', type: 'destructive', text: 'Да, продано' },
+                { id: 'no', type: 'cancel', text: 'Отмена' }
+            ]
+        }, function(buttonId) { // Убрали async, сделали обычную функцию
+            if (buttonId === 'yes') {
+                // Запускаем асинхронную операцию безопасно для Telegram API
+                window.executeMarkAsSold(productId).catch(err => {
+                    alert('Ошибка внутри операции: ' + err.message);
+                });
+            }
+        });
+    } else {
+        if (confirm('Перенести в проданные?')) {
+            window.executeMarkAsSold(productId).catch(err => {
+                alert('Ошибка внутри операции: ' + err.message);
+            });
+        }
+    }
+};
+
+// 4. ИСПОЛНЕНИЕ АПДЕЙТА СТАТУСА В БАЗЕ
+window.executeMarkAsSold = async function(productId) {
+    try {
+        if (!supabaseClient) throw new Error("Клиент Supabase не инициализирован");
+
+        const { error } = await supabaseClient
+            .from('products')
+            .update({ status: 'sold' })
+            .eq('id', productId);
+
+        if (error) throw error;
+
+        if (window.Telegram && window.Telegram.WebApp) {
+            window.Telegram.WebApp.showAlert('Товар успешно списан!');
+        } else {
+            alert('Товар успешно списан!');
+        }
         
-        try {
-            if (!window.currentProducts || window.currentProducts.length === 0) {
-                alert("Ошибка: База товаров пуста или еще не подгрузилась.");
-                return;
-            }
+        // Перезапускаем сборку склада
+        window.loadProducts(); 
+    } catch (err) {
+        alert('Ошибка смены статуса: ' + err.message);
+    }
+};
 
-            const product = window.currentProducts.find(p => String(p.id) === String(productId));
-            
-            if (!product) {
-                alert(`Товар с ID ${productId} не найден в локальном кэше.`);
-                return;
-            }
+// 5. РАБОТА С ШАБЛОНАМИ ЗАГOTOВОК
+window.useAsTemplate = function(name, price, imageUrlsRaw, descriptionRaw) {
+    const adminPanel = document.getElementById('admin-panel');
+    const catalogContainer = document.getElementById('store-front');
+    
+    if (catalogContainer && adminPanel) {
+        catalogContainer.style.display = 'none';
+        adminPanel.style.display = 'block';
+    }
 
-            // Вытягиваем элементы из HTML
-            const modalEl = document.getElementById('product-modal');
-            const carouselEl = document.getElementById('modal-carousel');
-            const titleEl = document.getElementById('product-modal-title'); // Новый айдишник из HTML
-            const priceEl = document.getElementById('modal-price');
-            const descEl = document.getElementById('modal-desc');
+    const nameInput = document.getElementById('prod-name');
+    const priceInput = document.getElementById('prod-price');
+    const descriptionTextarea = document.getElementById('prod-description'); // ID приведен к HTML-стандарту
 
-            // Ловим жуков на лету, если HTML опять не совпадает
-            if (!modalEl) throw new Error("Нет контейнера 'product-modal'");
-            if (!carouselEl) throw new Error("Нет контейнера 'modal-carousel'");
-            if (!titleEl) throw new Error("Нет контейнера 'product-modal-title'");
-            if (!priceEl) throw new Error("Нет контейнера 'modal-price'");
-            if (!descEl) throw new Error("Нет контейнера 'modal-desc'");
+    if (nameInput) nameInput.value = name;
+    if (priceInput) priceInput.value = price;
+    if (descriptionTextarea) descriptionTextarea.value = descriptionRaw || '';
+    
+    try {
+        window.currentTemplateImageUrl = JSON.parse(imageUrlsRaw);
+    } catch(e) {
+        window.currentTemplateImageUrl = imageUrlsRaw;
+    }
 
-            // Рендерим галерею картинок дропа
-            const images = Array.isArray(product.image_url) ? product.image_url : [product.image_url];
-            carouselEl.innerHTML = images.map(url => `
-                <img src="${url}" style="flex: 0 0 100%; width: 100%; max-height: 280px; object-fit: cover; border-radius: 12px;" onerror="this.src='https://placehold.co/400x400?text=NO+IMAGE'">
-            `).join('');
+    document.querySelectorAll('.size-input').forEach(input => input.value = 0);
+    window.showStatusModal('ЗАГОТОВКА', `Шаблон для "${name}" успешно подтянут! Измени остатки и дропай.`, true);
+};
 
-            // Заполняем текстовые поля шмотки
-            titleEl.innerText = product.name;
-            priceEl.innerText = `${product.price} UAH`;
-            descEl.innerText = product.description || 'Описание отсутствует.';
+// 6. СИСТЕМНЫЕ ВСПЛЫВАЮЩИЕ ОКНА СТАТУСА
+window.showStatusModal = function(title, message, isSuccess = true) {
+    const modal = document.getElementById('custom-modal');
+    if (!modal) {
+        alert(`${title} - ${message}`);
+        return;
+    }
+    
+    const modalTitle = document.getElementById('modal-title');
+    const modalMessage = document.getElementById('modal-message');
+    
+    if (modalTitle) modalTitle.textContent = title;
+    if (modalMessage) modalMessage.textContent = message;
+    
+    const closeBtn = document.getElementById('modal-close-btn');
+    if (closeBtn) {
+        closeBtn.style.background = isSuccess ? '#00e676' : '#e53935';
+    }
+    
+    modal.classList.add('active');
+};
 
-            // Открываем модалку на экран
-            modalEl.style.display = 'flex';
-            console.log("Модальное окно успешно открыто!");
 
-        } catch (error) {
-            alert(`Критический стоп логики: ${error.message}`);
-        }
-    };
-
-    // ==========================================
-    // 3. ФУНКЦИЯ ЗАКРЫТИЯ МОДАЛКИ
-    // ==========================================
-    window.closeModal = function() {
-        const modalEl = document.getElementById('product-modal');
-        if (modalEl) {
-            modalEl.style.display = 'none';
-        }
-    };
-
-// Ждем, пока Телеграм полностью прогрузит весь HTML-скелет
+/* ==========================================================================
+   ОСНОВНОЙ СТАРТ ПРИ ПРОГРУЗКЕ DOM СТРУКТУРЫ В ТЕЛЕГРАМЕ
+   ========================================================================== */
 document.addEventListener('DOMContentLoaded', () => {
 
-    /* ==========================================================================
-       1. ИНИЦИАЛИЗАЦИЯ И НАСТРОЙКИ СЕРВИСОВ
-       ========================================================================== */
     const SUPABASE_URL = 'https://gqkijtqclijcadcofrmd.supabase.co';
     const SUPABASE_KEY = 'sb_publishable__hvPxJPc24ccZpx5gWMEiw_Q9XbKoUf'; 
 
@@ -115,46 +184,31 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    // Инициализируем глобальный клиент базы данных
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // Инициализация Telegram WebApp SDK
+    // Инициализация Telegram WebApp API
     const tg = window.Telegram.WebApp;
     if (tg) { 
         tg.ready(); 
         tg.expand(); 
     }
 
-    // Telegram ID текущего пользователя (дефолт для тестов на ПК)
     const userTelegramId = tg.initDataUnsafe?.user?.id || 6088315974; 
 
-    // Глобальные переменные для хранения данных из заготовки
-    window.currentTemplateImageUrl = null;
-    window.currentTemplateDescription = null;
-    window.currentProducts = []; // Инициализируем пустой массив
-
-
-    /* ==========================================================================
-       2. ДОСТУП К DOM ЭЛЕМЕНТАМ ИНТЕРФЕЙСА
-       ========================================================================== */
+    // Элементы интерфейса
     const catalogContainer = document.getElementById('store-front');
     const adminPanel = document.getElementById('admin-panel');
-    const productsGrid = document.getElementById('products-list');
+    const categorySelect = document.getElementById('prod-category');
+    const outerwearBlock = document.getElementById('sizes-outerwear-block');
+    const pantsBlock = document.getElementById('sizes-pants-block');
+    const descriptionTextarea = document.getElementById('prod-description'); // Исправлен ID
 
     // Кнопки переключения экранов
     const btnToAdmin = document.getElementById('toggle-to-admin');
     const btnToCatalog = document.getElementById('toggle-to-catalog');
 
-    // Категории, блоки размеров и ОПИСАНИЕ
-    const categorySelect = document.getElementById('prod-category');
-    const outerwearBlock = document.getElementById('sizes-outerwear-block');
-    const pantsBlock = document.getElementById('sizes-pants-block');
-    const descriptionTextarea = document.getElementById('product-description');
-
-
-    /* ==========================================================================
-       3. УПРАВЛЕНИЕ ИНТЕРФЕЙСОМ И НАВИГАЦИЯ
-       ========================================================================== */
-    // Динамическое переключение сеток размеров при смене категории
+    // Навигация (Категории шмота)
     if (categorySelect && outerwearBlock && pantsBlock) {
         categorySelect.addEventListener('change', (e) => {
             if (e.target.value === 'outerwear') {
@@ -167,7 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Кнопки переключения экранов (Витрина <-> Админка)
+    // Навигация (Витрина <-> Панель Управления)
     if (btnToAdmin && catalogContainer && adminPanel) {
         btnToAdmin.addEventListener('click', () => { 
             catalogContainer.style.display = 'none'; 
@@ -179,23 +233,17 @@ document.addEventListener('DOMContentLoaded', () => {
         btnToCatalog.addEventListener('click', () => { 
             adminPanel.style.display = 'none'; 
             catalogContainer.style.display = 'block'; 
-            loadProducts(); // Обновляем склад при возвращении
+            window.loadProducts(); 
         });
     }
 
-
-    /* ==========================================================================
-       4. СЛУЖЕБНЫЕ И ОПЕРАЦИОННЫЕ ФУНКЦИИ СКЛАДА
-       ========================================================================== */
+    // Фейс-контроль доступа к Админке дропов
     async function checkAdminAccess() {
         if (!btnToAdmin) return; 
-
         if (!tg.initDataUnsafe?.user?.id) {
-            console.log("LOG: Тест на ПК — Фейс-контроль пройден автоматически.");
             btnToAdmin.style.display = 'block';
             return;
         }
-
         try {
             const { data: admin, error } = await supabaseClient
                 .from('admins')
@@ -204,23 +252,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 .maybeSingle();
 
             if (admin) {
-                console.log("LOG: Админ найден в базе Supabase!");
                 btnToAdmin.style.display = 'block';
             } else {
-                console.log("LOG: Обычный клиент. Прячем админку.");
                 btnToAdmin.style.display = 'none';
             }
         } catch (err) { 
-            console.error('Ошибка проверки прав в базе:', err.message); 
             btnToAdmin.style.display = 'block';
         }
     }
 
-
-    /* ==========================================================================
-       5. ЗАГРУЗКА И РЕНДЕРИНГ ОСТАТКОВ (ВИТРИНА) - ИСПРАВЛЕННАЯ ВЕРСИЯ
-       ========================================================================== */
-    async function loadProducts() {
+    // ГЛАВНЫЙ СБОРЩИК КАРТОЧЕК ДЛЯ СЕТКИ ОСТАТКОВ
+    window.loadProducts = async function() {
+        const productsGrid = document.getElementById('products-list');
         if (!productsGrid) return;
 
         try {
@@ -232,7 +275,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (prodError) throw prodError;
 
-            // Сохраняем строго массив товаров в глобальный кэш
             window.currentProducts = products || [];
 
             if (!products || products.length === 0) {
@@ -249,90 +291,79 @@ document.addEventListener('DOMContentLoaded', () => {
             productsGrid.innerHTML = '';
 
             products.forEach(product => {
-                const productVariants = variants.filter(v => String(v.product_id) === String(product.id));
-                const totalStock = productVariants.reduce((sum, v) => sum + (v.stock || 0), 0);
-                
-                const stockStatusLine = productVariants.length > 0 
-                    ? productVariants.map(v => `${v.size}: ${v.stock}шт`).join(' | ')
-                    : 'Размеры не указаны';
+                try {
+                    const productVariants = (variants || []).filter(v => v && String(v.product_id) === String(product.id));
+                    const totalStock = productVariants.reduce((sum, v) => sum + (v.stock || 0), 0);
+                    
+                    const stockStatusLine = productVariants.length > 0 
+                        ? productVariants.map(v => `${v.size}: ${v.stock}шт`).join(' | ')
+                        : 'Размеры не указаны';
 
-                const isAvailable = totalStock > 0;
-                const statusBadge = isAvailable 
-                    ? '<span class="status-badge in-stock">В НАЛИЧИИ</span>' 
-                    : '<span class="status-badge out-of-stock">РАСПРОДАНО</span>';
+                    const isAvailable = totalStock > 0;
+                    const statusBadge = isAvailable 
+                        ? '<span class="status-badge in-stock">В НАЛИЧИИ</span>' 
+                        : '<span class="status-badge out-of-stock">РАСПРОДАНО</span>';
 
-                const displayImgUrl = Array.isArray(product.image_url) 
-                    ? product.image_url[0] 
-                    : product.image_url;
+                    const displayImgUrl = Array.isArray(product.image_url) 
+                        ? product.image_url[0] 
+                        : (product.image_url || 'https://placehold.co/400x400?text=VINTAGE');
 
-                const card = document.createElement('div');
-                card.className = 'product-card';
-                
-                // Исправлена структура: добавлен закрывающий тег </div> для .product-info
-                card.innerHTML = `
-                    <div class="product-img-wrapper">
-                        ${statusBadge}
-                        <img src="${displayImgUrl}" alt="${product.name}" onerror="this.src='https://placehold.co/400x400?text=VINTAGE'">
-                    </div>
-                    <div class="product-info">
-                        <h3 class="product-name">${product.name}</h3>
-                        <div class="product-price">${product.price} UAH</div>
-                        
-                        <div class="stock-info-text">${stockStatusLine}</div>
-                        
-                        <div class="card-buttons" style="display: flex; gap: 8px; margin-top: 12px;">
-                            <button class="btn-more" onclick="window.openProductModal('${product.id}')" style="flex: 1; padding: 10px; background: #5c6bc0; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
-                                Узнать больше
-                            </button>
-                            <button class="btn-sold" onclick="window.markAsSold('${product.id}')" style="flex: 1; padding: 10px; background: #e53935; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
-                                Продано
-                            </button>
+                    const card = document.createElement('div');
+                    card.className = 'product-card';
+                    
+                    card.innerHTML = `
+                        <div class="product-img-wrapper">
+                            ${statusBadge}
+                            <img src="${displayImgUrl}" alt="${product.name}" onerror="this.src='https://placehold.co/400x400?text=VINTAGE'">
                         </div>
-                    </div>
-                `;
-                productsGrid.appendChild(card);
+                        <div class="product-info">
+                            <h3 class="product-name">${product.name}</h3>
+                            <div class="product-price">${product.price} UAH</div>
+                            <div class="stock-info-text">${stockStatusLine}</div>
+                            <div class="card-buttons" style="display: flex; gap: 8px; margin-top: 12px; position: relative; z-index: 999;"></div>
+                        </div>
+                    `;
+
+                    // Кнопка Узнать больше с жестким вызовом глобальной функции
+                    const btnMore = document.createElement('button');
+                    btnMore.className = 'btn-more';
+                    btnMore.innerText = 'Узнать больше';
+                    btnMore.addEventListener('click', (event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        window.openProductModal(product.id);
+                    });
+
+                    // Кнопка Продано с жестким вызовом глобальной функции
+                    const btnSold = document.createElement('button');
+                    btnSold.className = 'btn-sold';
+                    btnSold.innerText = 'Продано';
+                    btnSold.addEventListener('click', (event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        window.markAsSold(product.id);
+                    });
+
+                    const buttonsContainer = card.querySelector('.card-buttons');
+                    if (buttonsContainer) {
+                        buttonsContainer.appendChild(btnMore);
+                        buttonsContainer.appendChild(btnSold);
+                    }
+
+                    productsGrid.appendChild(card);
+
+                } catch (cardError) {
+                    console.error("Ошибка отдельной карточки:", cardError.message);
+                }
             });
+
         } catch (err) {
-            console.error('Ошибка склада:', err.message);
+            alert('Глобальная ошибка склада: ' + err.message);
             productsGrid.innerHTML = '<p class="loading-text">ОШИБКА ЗАГРУЗКИ СКЛАДА</p>';
         }
-    }
-
-    /* ==========================================================================
-       6. РАБОТА С ЗАГОТОВКАМИ (МАГИЯ ШАБЛОНОВ)
-       ========================================================================== */
-    window.useAsTemplate = function(name, price, imageUrlsRaw, descriptionRaw) {
-        if (catalogContainer && adminPanel) {
-            catalogContainer.style.display = 'none';
-            adminPanel.style.display = 'block';
-        }
-
-        const nameInput = document.getElementById('prod-name');
-        const priceInput = document.getElementById('prod-price');
-
-        if (nameInput) nameInput.value = name;
-        if (priceInput) priceInput.value = price;
-        
-        if (descriptionTextarea) {
-            descriptionTextarea.value = descriptionRaw || '';
-        }
-        
-        try {
-            window.currentTemplateImageUrl = JSON.parse(imageUrlsRaw);
-        } catch(e) {
-            window.currentTemplateImageUrl = imageUrlsRaw;
-        }
-
-        const sizeInputs = document.querySelectorAll('.size-input');
-        sizeInputs.forEach(input => input.value = 0);
-
-        showStatusModal('ЗАГОТОВКА', `Шаблон для "${name}" успешно подтянут! Измени остатки и дропай.`, true);
     };
 
-
-    /* ==========================================================================
-       7. ОБРАБОТКА ФОРМЫ И ДРОП В БАЗУ
-       ========================================================================== */
+    // ОБРАБОТКА И ОТПРАВКА ФОРМЫ ДРОПА В БАЗУ И N8N
     const form = document.getElementById('add-product-form');
     if (form) {
         form.addEventListener('submit', async (e) => {
@@ -360,7 +391,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const fileName = `${Date.now()}_${i}.${fileExt}`;
                         const filePath = `${fileName}`;
 
-                        const { data: uploadData, error: uploadError } = await supabaseClient
+                        const { error: uploadError } = await supabaseClient
                             .storage
                             .from('products')
                             .upload(filePath, file);
@@ -379,7 +410,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         ? window.currentTemplateImageUrl 
                         : [window.currentTemplateImageUrl];
                 } else {
-                    showStatusModal('ВНИМАНИЕ', 'Пожалуйста, выберите хотя бы один файл фотографии!', false);
+                    window.showStatusModal('ВНИМАНИЕ', 'Пожалуйста, выберите хотя бы один файл фотографии!', false);
                     return;
                 }
 
@@ -401,8 +432,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const variantsToInsert = [];
 
                 if (activeBlock) {
-                    const inputs = activeBlock.querySelectorAll('.size-input');
-                    inputs.forEach(input => {
+                    activeBlock.querySelectorAll('.size-input').forEach(input => {
                         const sizeName = input.getAttribute('data-size');
                         const stockVal = parseInt(input.value) || 0;
                         
@@ -425,11 +455,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (variantsError) throw variantsError;
                 }
 
+                // Логика Аудитора в n8n
                 try {
-                    const activeSizesText = variantsToInsert
-                        .map(v => `${v.size}: ${v.stock}шт`)
-                        .join(' | ');
-
+                    const activeSizesText = variantsToInsert.map(v => `${v.size}: ${v.stock}шт`).join(' | ');
                     const N8N_WEBHOOK_URL = 'https://tiktiok.xyz/webhook-test/new-drop'; 
 
                     await fetch(N8N_WEBHOOK_URL, {
@@ -446,12 +474,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             admin_telegram_id: userTelegramId
                         })
                     });
-                    console.log('Пакет успешно доставлен Аудитору в n8n!');
                 } catch (n8nErr) {
-                    console.error('Ошибка n8n:', n8nErr.message);
+                    console.error('Ошибка n8n вебхука:', n8nErr.message);
                 }
 
-                showStatusModal('УСПЕХ!', 'ДРОП И ВСЕ ОСТАТКИ УСПЕШНО СОХРАНЕНЫ!', true);
+                window.showStatusModal('УСПЕХ!', 'ДРОП И ВСЕ ОСТАТКИ УСПЕШНО СОХРАНЕНЫ!', true);
                 
                 form.reset();
                 window.currentTemplateImageUrl = null;
@@ -462,120 +489,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
             } catch (err) {
-                showStatusModal('ОШИБКА ОПЕРАЦИИ', err.message, false);
+                window.showStatusModal('ОШИБКА ОПЕРАЦИИ', err.message, false);
             }
         });
     }
 
-
-    /* ==========================================================================
-       8. ВСПЛЫВАЮЩИЕ ОКНА, ДЕТАЛИ И ЭКСПОРТ ДЛЯ ИНТЕРФЕЙСА
-       ========================================================================== */
-    function showStatusModal(title, message, isSuccess = true) {
-        const modal = document.getElementById('custom-modal');
-        if (!modal) {
-            alert(`${title} - ${message}`);
-            return;
-        }
-        
-        const modalContent = modal.querySelector('.modal-content');
-        const modalTitle = document.getElementById('modal-title');
-        const modalMessage = document.getElementById('modal-message');
-        
-        if (modalTitle) modalTitle.textContent = title;
-        if (modalMessage) modalMessage.textContent = message;
-        
-        if (modalContent) {
-            modalContent.classList.remove('modal-success', 'modal-error');
-            document.getElementById('modal-close-btn').style.background = isSuccess ? '#00e676' : '#e53935';
-        }
-        
-        modal.classList.add('active');
-    }
-
+    // Слушатель для кнопки закрытия системной модалки статуса
     const modalCloseBtn = document.getElementById('modal-close-btn');
     if (modalCloseBtn) {
         modalCloseBtn.addEventListener('click', () => {
             const modal = document.getElementById('custom-modal');
-            if (modal) modal.remove();
+            if (modal) modal.classList.remove('active'); 
         });
     }
 
-    // ЛОГИКА КНОПКИ "ПРОДАНО" (Экспортируем в window)
-    window.markAsSold = function(productId) {
-        if (window.Telegram && window.Telegram.WebApp) {
-            window.Telegram.WebApp.showPopup({
-                title: 'Аудит склада',
-                message: 'Перенести этот товар в архив проданных?',
-                buttons: [
-                    { id: 'yes', type: 'destructive', text: 'Да, продано' },
-                    { id: 'no', type: 'cancel', text: 'Отмена' }
-                ]
-            }, async (buttonId) => {
-                if (buttonId === 'yes') {
-                    await executeMarkAsSold(productId);
-                }
-            });
-        } else {
-            if (confirm('Перенести в проданные?')) {
-                executeMarkAsSold(productId);
-            }
-        }
-    };
-
-    async function executeMarkAsSold(productId) {
-        try {
-            const { error } = await supabaseClient
-                .from('products')
-                .update({ status: 'sold' })
-                .eq('id', productId);
-
-            if (error) throw error;
-
-            if (window.Telegram && window.Telegram.WebApp) {
-                window.Telegram.WebApp.showAlert('Товар успешно списан!');
-            }
-            loadProducts(); 
-        } catch (err) {
-            alert('Ошибка смены статуса: ' + err.message);
-        }
-    }
-
-    // ЛОГИКА КНОПКИ "УЗНАТЬ БОЛЬШЕ" (Экспортируем в window + убираем жесткое сравнение)
-    window.openProductModal = function(productId) {
-        if (!window.currentProducts || window.currentProducts.length === 0) {
-            alert("Массив товаров пуст. Дождись загрузки витрины.");
-            return;
-        }
-
-        // Кастуем оба ID к строке String(), чтобы избежать несовпадения типов int и string!
-        const product = window.currentProducts.find(p => String(p.id) === String(productId));
-        
-        if (!product) {
-            alert(`Критический сбой: Товар с ID ${productId} не найден на складе!`);
-            return;
-        }
-
-        const images = Array.isArray(product.image_url) ? product.image_url : [product.image_url];
-        
-        const carouselHtml = images.map(url => `
-            <img src="${url}" class="carousel-item" style="flex: 0 0 100%; width: 100%; max-height: 280px; object-fit: cover; border-radius: 12px;" alt="Дроп" onerror="this.src='https://placehold.co/400x400?text=NO+IMAGE'">
-        `).join('');
-
-        // Набиваем уникальные элементы данными
-        document.getElementById('modal-carousel').innerHTML = carouselHtml;
-        document.getElementById('product-modal-title').innerText = product.name;
-        document.getElementById('modal-price').innerText = `${product.price} UAH`;
-        document.getElementById('modal-desc').innerText = product.description || 'Описание отсутствует.';
-
-        document.getElementById('product-modal').style.display = 'flex';
-    };
-
-    window.closeModal = function() {
-        document.getElementById('product-modal').style.display = 'none';
-    };
-
-    // Автозапуск
-    loadProducts();
+    // Запуск процессов
+    window.loadProducts();
     checkAdminAccess();
 });
