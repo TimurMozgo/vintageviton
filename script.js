@@ -78,11 +78,19 @@ window.openProductModal = function(productId) {
         return;
     }
 
-    // Рендерим карусель картинок шмотки
+    // === ЖЕСТКИЙ СБРОС И СТАБИЛИЗАЦИЯ КАРУСЕЛИ ДЛЯ ТЕЛЕГРАМА ===
+    carouselEl.scrollLeft = 0; // Сбрасываем скролл картинок в ноль!
+    carouselEl.style.display = 'flex';
+    carouselEl.style.overflowX = 'auto';
+    carouselEl.style.scrollSnapType = 'x mandatory'; // Фотки будут магнититься при свайпе
+    carouselEl.style.webkitOverflowScrolling = 'touch'; // Плавный скролл для iOS
+    carouselEl.style.scrollbarWidth = 'none'; // Прячем уродливый стандартный скроллбар
+
+    // Рендерим карусель картинок шмотки (добавлен scroll-snap-align)
     const images = Array.isArray(product.image_url) ? product.image_url : [product.image_url];
     
     carouselEl.innerHTML = images.map(url => `
-        <img src="${url}" class="carousel-item" style="flex: 0 0 100%; width: 100%; max-height: 280px; object-fit: cover; border-radius: 12px;" alt="Дроп" onerror="this.src='https://placehold.co/400x400?text=NO+IMAGE'">
+        <img src="${url}" class="carousel-item" style="flex: 0 0 100%; width: 100%; max-height: 280px; object-fit: cover; border-radius: 12px; scroll-snap-align: start;" alt="Дроп" onerror="this.src='https://placehold.co/400x400?text=NO+IMAGE'">
     `).join('');
 
     // === АВТО-ГЕНЕРАЦИЯ ТОЧЕК ДЛЯ СКРОЛЛА КАРТИНOК ===
@@ -107,7 +115,7 @@ window.openProductModal = function(productId) {
         });
     };
 
-    // Наполняем заголовок
+    // Наполнили заголовок
     titleEl.innerText = product.name;
     
     // === ДИНАМИЧЕСКОЕ ОПИСАНИЕ С КНОПКОЙ "ПОКАЗАТЬ ПОЛНОСТЬЮ" ===
@@ -123,13 +131,15 @@ window.openProductModal = function(productId) {
 
     const descBox = document.getElementById('modal-desc-box');
     const descToggle = document.getElementById('modal-desc-toggle');
+    
+    if (descBox) descBox.scrollTop = 0; // Сбрасываем вертикальный скролл текста в ноль!
 
     // Проверяем, превышает ли текст высоту компактного вида (90px)
-    if (descBox.scrollHeight > 90) {
+    if (descBox && descBox.scrollHeight > 90) {
         descToggle.style.display = 'block'; // Показываем кнопку, если текст большой
         
         descToggle.onclick = function(e) {
-            e.stopPropagation(); // Защита от краша 738/747
+            e.stopPropagation(); 
             if (descBox.classList.contains('short-view')) {
                 descBox.classList.remove('short-view');
                 descBox.classList.add('full-view');
@@ -138,6 +148,7 @@ window.openProductModal = function(productId) {
                 descBox.classList.remove('full-view');
                 descBox.classList.add('short-view');
                 descToggle.innerText = 'Развернуть описание ↓';
+                descBox.scrollTop = 0; // Возвращаем наверх при сворачивании
             }
         };
     }
@@ -768,9 +779,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Клик мимо поиска закрывает подсказки
         document.addEventListener('click', (e) => {
-            if (e.target !== searchInput && e.target !== suggestionsBox) {
-                suggestionsBox.innerHTML = '';
-                suggestionsBox.style.style.display = 'none';
+            if (searchInput && suggestionsBox) {
+                if (e.target !== searchInput && e.target !== suggestionsBox) {
+                    suggestionsBox.innerHTML = '';
+                    suggestionsBox.style.display = 'none'; // Теперь всё чётко!
+                }
             }
         });
     }

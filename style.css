@@ -322,7 +322,6 @@ body {
 .product-card {
   border: var(--border-style);
   background: var(--card-bg);
-  box-shadow: var(--shadow-style);
   display: flex;
   flex-direction: column;
   position: relative;
@@ -429,7 +428,6 @@ body {
   background: #FFFFFF;
   color: #000000;
 }
-
 
 /* ==========================================================================
    5. АДМИН-ПАНЕЛЬ (ФОРМА И ИНПУТЫ)
@@ -781,10 +779,11 @@ body {
 
 /* Полный вид: открывает весь текст без остатка */
 .desc-scroll-box.full-view {
-    max-height: 1000px; /* С запасом под любое описание */
+    max-height: 1000px; 
     mask-image: none;
     -webkit-mask-image: none;
-    overflow-y: auto; /* Если текст совсем гигантский — включится аккуратный скролл */
+    overflow-y: auto !important; 
+    -webkit-overflow-scrolling: touch; 
 }
 
 /* КНОПКА ДЛЯ РАЗВЕРТЫВАНИЯ (Прямо под боксом) */
