@@ -521,7 +521,7 @@ body {
 /* Главная кнопка отправки дропа */
 .neo-btn {
   width: 100%;
-  background: #00FF66; /* Яркий акцент на кнопке финального действия */
+  background: #5c5c5c;
   color: #FFF;
   border: var(--border-style);
   padding: 16px;
@@ -530,13 +530,12 @@ body {
   text-transform: uppercase;
   cursor: pointer;
   box-shadow: var(--shadow-style);
-  transition: transform 0.05s, box-shadow 0.05s;
+  transition: all 0.1s ease;
   letter-spacing: 1px;
 }
 
-.neo-btn:active {
-  transform: translate(5px, 5px);
-  box-shadow: var(--shadow-active);
+.neo-btn:hover {
+  background: #000;
 }
 
 
@@ -567,9 +566,14 @@ body {
 
 /* Ячейка размера */
 .stock-item {
-  display: flex;
-  border: var(--border-style);
-  background: var(--card-bg);
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    cursor: pointer !important;
+    padding: 14px !important; /* Насыщенный размер кнопки */
+    background: #000000 !important;
+    border: 2px solid #ffffff !important;
+    transition: background 0.2s ease, border-color 0.2s ease !important;
 }
 
 .size-badge {
@@ -582,6 +586,11 @@ body {
   justify-content: center;
   min-width: 48px;
   padding: 0 4px;
+}
+
+.stock-item.active-size {
+    background: #555555 !important; /* Тот самый серый цвет */
+    border-color: #555555 !important;
 }
 
 .num-grid .size-badge {
@@ -777,29 +786,55 @@ body {
     -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
 }
 
-/* Полный вид: открывает весь текст без остатка */
-.desc-scroll-box.full-view {
-    max-height: 1000px; 
-    mask-image: none;
-    -webkit-mask-image: none;
-    overflow-y: auto !important; 
-    -webkit-overflow-scrolling: touch; 
-}
 
+/* ПОЛНЫЙ ВИД: Открываем на весь экран (Лонг с плечом х100) */
+.desc-scroll-box.full-view {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    background: rgba(17, 17, 17, 0.98) !important; /* Глухой темный фон */
+    backdrop-filter: blur(10px);
+    z-index: 99999 !important; /* Строго поверх карусели и модалки */
+    border-radius: 0 !important;
+    padding: 50px 20px 100px 20px !important; /* Много места снизу для плавающей кнопки */
+    
+    /* Снимаем размытие текста */
+    mask-image: none !important;
+    -webkit-mask-image: none !important;
+    
+    /* Включаем скролл внутри полного экрана */
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    box-sizing: border-box !important;
+    
+    /* === БРОНЯ ОТ ТЕЛЕГРАМА: РАЗРЕШАЕМ КОПИРОВАНИЕ ТЕКСТА === */
+    user-select: text !important;
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
+    cursor: text !important;
+    pointer-events: auto !important;
+}
 /* КНОПКА ДЛЯ РАЗВЕРТЫВАНИЯ (Прямо под боксом) */
 .toggle-desc-btn {
-    font-family: monospace;
-    font-size: 12px;
-    color: #b388ff; /* Фиолетовый неон */
-    text-shadow: 0 0 5px rgba(179, 136, 255, 0.4);
-    cursor: pointer;
-    text-align: center;
-    margin-top: 8px;
-    font-weight: bold;
-    text-transform: uppercase;
-    padding: 6px 0;
-    width: 100%;
-    display: block;
+    display: block !important;
+    width: 100% !important;
+    text-align: center !important;
+    padding: 10px 0 5px 0 !important;
+    background: transparent !important;
+    color: #b388ff !important; /* Твой фирменный фиолетовый */
+    font-size: 14px !important;
+    font-weight: bold !important;
+    cursor: pointer !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    position: relative !important;
+    z-index: 10 !important;
+    text-transform: uppercase !important;
 }
 
 .toggle-desc-btn:active {

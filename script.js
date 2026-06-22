@@ -86,11 +86,13 @@ window.openProductModal = function(productId) {
     carouselEl.style.webkitOverflowScrolling = 'touch'; // Плавный скролл для iOS
     carouselEl.style.scrollbarWidth = 'none'; // Прячем уродливый стандартный скроллбар
 
-    // Рендерим карусель картинок шмотки (добавлен scroll-snap-align)
+    // === ФОТКИ: ПОЛНЫЙ РАЗМЕР (CONTAIN) + РАЗРЕШЕНИЕ НА СОХРАНЕНИЕ ПО ДОЛГОМУ ТАПУ ===
     const images = Array.isArray(product.image_url) ? product.image_url : [product.image_url];
     
     carouselEl.innerHTML = images.map(url => `
-        <img src="${url}" class="carousel-item" style="flex: 0 0 100%; width: 100%; max-height: 280px; object-fit: cover; border-radius: 12px; scroll-snap-align: start;" alt="Дроп" onerror="this.src='https://placehold.co/400x400?text=NO+IMAGE'">
+        <img src="${url}" class="carousel-item" 
+             style="flex: 0 0 100%; width: 100%; height: 350px; object-fit: contain; border-radius: 12px; scroll-snap-align: start; -webkit-touch-callout: default; pointer-events: auto;" 
+             alt="Дроп" onerror="this.src='https://placehold.co/400x400?text=NO+IMAGE'">
     `).join('');
 
     // === АВТО-ГЕНЕРАЦИЯ ТОЧЕК ДЛЯ СКРОЛЛА КАРТИНOК ===
@@ -118,53 +120,128 @@ window.openProductModal = function(productId) {
     // Наполнили заголовок
     titleEl.innerText = product.name;
     
-    // === ДИНАМИЧЕСКОЕ ОПИСАНИЕ С КНОПКОЙ "ПОКАЗАТЬ ПОЛНОСТЬЮ" ===
+    // === ОПИСАНИЕ: СТРУКТУРА С РАЗРЕШЕНИЕМ НА ВЫДЕЛЕНИЕ И КОПИРОВАНИЕ ===
     const fullText = product.description || 'Описание отсутствует.';
     
-    // Рендерим контейнер с текстом и скрытой кнопкой
     descEl.innerHTML = `
         <div class="desc-wrapper">
-            <div class="desc-scroll-box short-view" id="modal-desc-box">${fullText}</div>
-            <div class="toggle-desc-btn" id="modal-desc-toggle" style="display: none;">Развернуть описание ↓</div>
+            <div class="desc-scroll-box short-view" id="modal-desc-box" style="user-select: text !important; -webkit-user-select: text !important; pointer-events: auto;">${fullText}</div>
+            <div class="toggle-desc-btn" id="modal-desc-toggle" style="display: none; position: relative; z-index: 10; pointer-events: auto;">Развернуть описание ↓</div>
         </div>
     `;
 
+    // === КРИТИЧЕСКИЙ ФИКС ТАЙМИНГА: СНАЧАЛА ВКЛЮЧАЕМ ВИДИМОСТЬ МОДАЛКИ ===
+    modalEl.style.setProperty('display', 'flex', 'important');
+    modalEl.classList.add('active'); 
+
+    // === ЗАМЕР ВЫСОТЫ ОПИСАНИЯ ПОСЛЕ ОТКРЫТИЯ ОКНА ===
     const descBox = document.getElementById('modal-desc-box');
     const descToggle = document.getElementById('modal-desc-toggle');
     
     if (descBox) descBox.scrollTop = 0; // Сбрасываем вертикальный скролл текста в ноль!
 
-    // Проверяем, превышает ли текст высоту компактного вида (90px)
-    if (descBox && descBox.scrollHeight > 90) {
-        descToggle.style.display = 'block'; // Показываем кнопку, если текст большой
-        
-        descToggle.onclick = function(e) {
-            e.stopPropagation(); 
-            if (descBox.classList.contains('short-view')) {
-                descBox.classList.remove('short-view');
-                descBox.classList.add('full-view');
-                descToggle.innerText = 'Свернуть описание ↑';
-            } else {
-                descBox.classList.remove('full-view');
-                descBox.classList.add('short-view');
-                descToggle.innerText = 'Развернуть описание ↓';
-                descBox.scrollTop = 0; // Возвращаем наверх при сворачивании
-            }
-        };
+    if (descBox && descToggle) {
+        if (descBox.scrollHeight > 90) {
+            descToggle.style.display = 'block'; 
+            
+            // === НОВАЯ ЛОГИКА: ПОЛНЫЙ ЭКРАН И ПЛАВАЮЩАЯ КНОПКА ===
+            descToggle.onclick = function(e) {
+                e.stopPropagation(); 
+                if (descBox.classList.contains('short-view')) {
+                    // Идем в лонг: разворачиваем на весь экран
+                    descBox.classList.remove('short-view');
+                    descBox.classList.add('full-view');
+                    
+                    descToggle.classList.add('floating-btn'); 
+                    descToggle.innerText = 'СВЕРНУТЬ ↑';
+                    
+                    // Замораживаем скролл сайта
+                    document.body.style.overflow = 'hidden'; 
+                } else {
+                    // Фиксируем прибыль: возвращаем компактный вид
+                    descBox.classList.remove('full-view');
+                    descBox.classList.add('short-view');
+                    
+                    descToggle.classList.remove('floating-btn'); 
+                    descToggle.innerText = 'Развернуть описание ↓';
+                    descBox.scrollTop = 0; 
+                    
+                    // Размораживаем скролл
+                    document.body.style.overflow = ''; 
+                }
+            };
+        } else {
+            descToggle.style.display = 'none'; 
+        }
     }
 
-    // Цену опускаем ниже описания
+    // === ДИНАМИЧЕСКАЯ СЕТКА ВЫБОРА (БЕЗ НУЛЕЙ, ТОЛЬКО КНОПКИ) ===
+    let sizesContainer = document.getElementById('modal-sizes');
+    if (!sizesContainer) {
+        sizesContainer = document.createElement('div');
+        sizesContainer.id = 'modal-sizes';
+        sizesContainer.className = 'size-selection-container'; 
+        priceEl.before(sizesContainer);
+    }
+
+    const availableSizes = product.sizes || ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'];
+
+    sizesContainer.innerHTML = `
+        <div class="size-title" style="font-family: monospace; font-size: 11px; color: #888; font-weight: bold; margin-bottom: 10px; text-transform: uppercase;">Выберите размер:</div>
+        <div class="size-grid">
+            ${availableSizes.map(size => `
+                <div class="size-btn" data-size="${size}">${size}</div>
+            `).join('')}
+        </div>
+    `;
+
+    sizesContainer.querySelectorAll('.size-btn').forEach(btn => {
+        btn.onclick = function(e) {
+            e.stopPropagation();
+            sizesContainer.querySelectorAll('.size-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+        };
+    });
+
     priceEl.innerText = `${product.price} UAH`;
 
     // === БЕЗОПАСНАЯ ИЗОЛЯЦИЯ КЛИКОВ ВНУТРИ МОДАЛКИ ===
     const modalContentEl = modalEl.querySelector('.modal-content') || modalEl;
     modalContentEl.onclick = function(event) {
-        event.stopPropagation(); // Клик внутри окна не улетает наружу
+        event.stopPropagation(); 
     };
+};
 
-    // Открываем окно через класс (безопасно для мобилок)
-    modalEl.style.setProperty('display', 'flex', 'important');
-    modalEl.classList.add('active'); 
+// 2. ЗАКРЫТИЕ МОДАЛКИ ТОВАРA — МАКСИМАЛЬНАЯ ЗАЩИТА И РИСК-МЕНЕДЖМЕНТ
+window.closeModal = function() {
+    const modalEl = document.getElementById('product-modal');
+    
+    if (modalEl) {
+        modalEl.classList.remove('active');
+        
+        // СЕЙФГАРД: Если юзер закрыл окно во время полноэкранного описания
+        const descBox = document.getElementById('modal-desc-box');
+        const descToggle = document.getElementById('modal-desc-toggle');
+        
+        if (descBox && descBox.classList.contains('full-view')) {
+            descBox.classList.remove('full-view');
+            descBox.classList.add('short-view');
+            if (descToggle) {
+                descToggle.classList.remove('floating-btn');
+                descToggle.innerText = 'Развернуть описание ↓';
+            }
+        }
+        
+        // Размораживаем интерфейс в любом случае
+        document.body.style.overflow = '';
+        
+        // Безопасное скрытие через таймаут
+        setTimeout(() => {
+            if (modalEl && modalEl.style) {
+                modalEl.style.setProperty('display', 'none', 'important');
+            }
+        }, 200);
+    }
 };
 
 // 2. ЗАКРЫТИЕ МОДАЛКИ ТОВАРA — МАКСИМАЛЬНАЯ ЗАЩИТА
@@ -341,7 +418,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const SUPABASE_KEY = 'sb_publishable__hvPxJPc24ccZpx5gWMEiw_Q9XbKoUf'; 
 
     if (!window.supabase) {
-        alert("КРИТИЧЕСКАЯ ОШИБКА: Скрипт Supabase SDK не загружен в index.html!");
+        alert("КРИТИЧЕСКАЯ ОШИБКА: Скрипт Supabase SDK не загружен in index.html!");
         return;
     }
 
@@ -372,6 +449,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Кнопки переключения папок склада (В НАЛИЧИИ / ПРОДАНО)
     const tabActive = document.getElementById('tab-active');
     const tabSold = document.getElementById('tab-sold');
+
+    // --- ДОБАВЛЕНО: ЛОГИКА ТАПА ПО КНОПКАМ-РАЗМЕРАМ ---
+    // Находим все карточки размеров и вешаем переключение серого цвета при клике
+    document.querySelectorAll('.stock-item').forEach(item => {
+        item.addEventListener('click', function() {
+            this.classList.toggle('active-size');
+        });
+    });
 
     // Навигация (Категории шмота)
     if (categorySelect && outerwearBlock && pantsBlock) {
@@ -624,6 +709,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const { data: productData, error: productError } = await supabaseClient
                     .from('products')
+                    .from('products')
                     .insert([{ 
                         name: name, 
                         price: price, 
@@ -639,19 +725,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 const activeBlock = category === 'outerwear' ? outerwearBlock : pantsBlock;
                 const variantsToInsert = [];
 
+                // --- ИЗМЕНЕНО: СБОРДАННЫХ С НОВЫХ КНОПОК-ПЛАШЕК ---
                 if (activeBlock) {
-                    activeBlock.querySelectorAll('.size-input').forEach(input => {
-                        const sizeName = input.getAttribute('data-size');
-                        const stockVal = parseInt(input.value) || 0;
+                    // Ищем только те плашки, которые юзер нажал (у которых есть класс .active-size)
+                    activeBlock.querySelectorAll('.stock-item.active-size').forEach(item => {
+                        const sizeName = item.getAttribute('data-size');
                         
-                        if (stockVal > 0) {
-                            variantsToInsert.push({
-                                product_id: productId,
-                                size: sizeName,
-                                color: 'Black',
-                                stock: stockVal
-                            });
-                        }
+                        variantsToInsert.push({
+                            product_id: productId,
+                            size: sizeName,
+                            color: 'Black',
+                            stock: 1 // По умолчанию ставим 1 шт на склад для выбранных размеров
+                        });
                     });
                 }
 
@@ -691,6 +776,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 form.reset();
                 window.currentTemplateImageUrl = null;
                 
+                // --- ДОБАВЛЕНО: СБРОС КНОПОК ПОСЛЕ УСПЕШНОЙ ОТПРАВКИ ---
+                document.querySelectorAll('.stock-item').forEach(item => {
+                    item.classList.remove('active-size'); // тушим серый цвет у всех кнопок
+                });
+
                 if (outerwearBlock && pantsBlock) {
                     outerwearBlock.style.display = 'block';
                     pantsBlock.style.display = 'none';
