@@ -788,6 +788,7 @@ body {
 
 
 /* ПОЛНЫЙ ВИД: Открываем на весь экран (Лонг с плечом х100) */
+
 .desc-scroll-box.full-view {
     position: fixed !important;
     top: 0 !important;
@@ -795,22 +796,20 @@ body {
     width: 100vw !important;
     height: 100vh !important;
     max-height: 100vh !important;
-    background: rgba(17, 17, 17, 0.98) !important; /* Глухой темный фон */
+    background: rgba(17, 17, 17, 0.98) !important; 
     backdrop-filter: blur(10px);
-    z-index: 99999 !important; /* Строго поверх карусели и модалки */
+    z-index: 99999 !important; /* Экран на максимуме */
     border-radius: 0 !important;
-    padding: 50px 20px 100px 20px !important; /* Много места снизу для плавающей кнопки */
+    /* Увеличиваем нижний отступ, чтобы текст не залезал под кнопку */
+    padding: 60px 20px 120px 20px !important; 
     
-    /* Снимаем размытие текста */
     mask-image: none !important;
     -webkit-mask-image: none !important;
     
-    /* Включаем скролл внутри полного экрана */
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
     box-sizing: border-box !important;
     
-    /* === БРОНЯ ОТ ТЕЛЕГРАМА: РАЗРЕШАЕМ КОПИРОВАНИЕ ТЕКСТА === */
     user-select: text !important;
     -webkit-user-select: text !important;
     -moz-user-select: text !important;
@@ -818,23 +817,41 @@ body {
     cursor: text !important;
     pointer-events: auto !important;
 }
+
 /* КНОПКА ДЛЯ РАЗВЕРТЫВАНИЯ (Прямо под боксом) */
+
 .toggle-desc-btn {
     display: block !important;
     width: 100% !important;
     text-align: center !important;
-    padding: 10px 0 5px 0 !important;
+    padding: 12px 0 !important;
     background: transparent !important;
-    color: #b388ff !important; /* Твой фирменный фиолетовый */
+    color: #b388ff !important; 
     font-size: 14px !important;
     font-weight: bold !important;
     cursor: pointer !important;
     border: none !important;
     border-radius: 0 !important;
     box-shadow: none !important;
-    position: relative !important;
-    z-index: 10 !important;
     text-transform: uppercase !important;
+    
+    /* ИСПРАВЛЕНИЕ: Базовое положение под маленьким боксом */
+    position: relative !important;
+    z-index: 100000 !important; /* Изначально высокий z-index */
+    transition: all 0.2s ease !important;
+}
+
+.desc-scroll-box.full-view + .toggle-desc-btn,
+.toggle-desc-btn.floating-btn {
+    position: fixed !important;
+    bottom: 20px !important; /* 20px от низа экрана телефона */
+    left: 5% !important;
+    width: 90% !important; /* Делаем её широкой и удобной для тапа */
+    background: #111111 !important; /* Плотный фон, чтобы текст под ней не просвечивал */
+    border: 2px solid #b388ff !important; /* Красивая неоновая рамка */
+    border-radius: 8px !important;
+    z-index: 100001 !important; /* Она ДОЛЖНА быть выше, чем .full-view (99999) */
+    box-shadow: 0 0 15px rgba(179, 136, 255, 0.4) !important; /* Подсветка */
 }
 
 .toggle-desc-btn:active {

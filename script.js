@@ -212,30 +212,30 @@ window.openProductModal = function(productId) {
     };
 };
 
-// 2. ЗАКРЫТИЕ МОДАЛКИ ТОВАРA — МАКСИМАЛЬНАЯ ЗАЩИТА И РИСК-МЕНЕДЖМЕНТ
+// 2. ЗАКРЫТИЕ МОДАЛКИ ТОВАРA — ПОЛНАЯ СИНХРОНИЗАЦИЯ И СБРОС
 window.closeModal = function() {
     const modalEl = document.getElementById('product-modal');
     
     if (modalEl) {
         modalEl.classList.remove('active');
         
-        // СЕЙФГАРД: Если юзер закрыл окно во время полноэкранного описания
+        // СЕЙФГАРД: Принудительно сворачиваем описание, если юзер закрыл модалку
         const descBox = document.getElementById('modal-desc-box');
         const descToggle = document.getElementById('modal-desc-toggle');
         
-        if (descBox && descBox.classList.contains('full-view')) {
+        if (descBox) {
             descBox.classList.remove('full-view');
             descBox.classList.add('short-view');
-            if (descToggle) {
-                descToggle.classList.remove('floating-btn');
-                descToggle.innerText = 'Развернуть описание ↓';
-            }
+        }
+        if (descToggle) {
+            descToggle.classList.remove('floating-btn');
+            descToggle.innerText = 'Развернуть описание ↓';
         }
         
-        // Размораживаем интерфейс в любом случае
+        // Размораживаем скролл интерфейса
         document.body.style.overflow = '';
         
-        // Безопасное скрытие через таймаут
+        // Безопасное скрытие через таймаут для плавной анимации
         setTimeout(() => {
             if (modalEl && modalEl.style) {
                 modalEl.style.setProperty('display', 'none', 'important');
@@ -244,21 +244,32 @@ window.closeModal = function() {
     }
 };
 
-// 2. ЗАКРЫТИЕ МОДАЛКИ ТОВАРA — МАКСИМАЛЬНАЯ ЗАЩИТА
-window.closeModal = function() {
-    const modalEl = document.getElementById('product-modal');
-    
-    if (modalEl) {
-        modalEl.classList.remove('active');
+// 3. ДОПОЛНИТЕЛЬНО: Логика кнопки «Развернуть / Свернуть» внутри модалки
+// Вставляем один раз, чтобы кнопка работала как триггер в обе стороны
+const descToggle = document.getElementById('modal-desc-toggle');
+const descBox = document.getElementById('modal-desc-box');
+
+if (descToggle && descBox) {
+    // Убираем старые слушатели, если они были, и вешаем чистый триггер
+    descToggle.onclick = function(e) {
+        e.preventDefault();
+        e.stopPropagation();
         
-        // Безопасное скрытие через таймаут, чтобы плавная анимация успела отработать
-        setTimeout(() => {
-            if (modalEl && modalEl.style) {
-                modalEl.style.setProperty('display', 'none', 'important');
-            }
-        }, 200);
-    }
-};
+        if (descBox.classList.contains('short-view')) {
+            // Разворачиваем
+            descBox.classList.remove('short-view');
+            descBox.classList.add('full-view');
+            descToggle.classList.add('floating-btn');
+            descToggle.innerText = 'Свернуть описание ↑';
+        } else {
+            // Сворачиваем обратно
+            descBox.classList.remove('full-view');
+            descBox.classList.add('short-view');
+            descToggle.classList.remove('floating-btn');
+            descToggle.innerText = 'Развернуть описание ↓';
+        }
+    };
+}
 
 // 3. ЛОГИКА КНОПКИ "ПРОДАНО" — ИСПРАВЛЕНА ДЛЯ ТЕЛЕГРАМА
 window.markAsSold = function(productId) {
