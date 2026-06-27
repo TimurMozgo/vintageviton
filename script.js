@@ -23,11 +23,7 @@ let supabaseClient = null;
 // Текущий экран склада: 'active' (в наличии) или 'sold' (продано)
 window.currentWarehouseTab = 'active';
 
-/* ==========================================================================
-   ГЛOБАЛЬНЫЕ ФУНКЦИИ ИНТЕРФЕЙСА (ДОСТУПНЫ ИЗ ЛЮБОЙ ТОЧКИ И КОЛБЭКОВ ТГ)
-   ========================================================================== */
-
-// 1. ЛОГИКА КНОПКИ "УЗНАТЬ БОЛЬШЕ" — С КНОПКОЙ НАДПИСИ И ЗАЩИТОЙ ОТ КРАШЕЙ
+// 1. ЛОГИКА КНОПКИ "УЗНАТЬ БОЛЬШЕ" — С ИСПРАВЛЕННЫМ БЕЗБАГОВЫМ ФУЛЛСКРИНОМ ВНЕ МОДАЛКИ
 window.openProductModal = function(productId) {
     // Проверка 1: Загружен ли кэш товаров
     if (!window.currentProducts || window.currentProducts.length === 0) {
@@ -82,18 +78,101 @@ window.openProductModal = function(productId) {
     carouselEl.scrollLeft = 0; // Сбрасываем скролл картинок в ноль!
     carouselEl.style.display = 'flex';
     carouselEl.style.overflowX = 'auto';
-    carouselEl.style.scrollSnapType = 'x mandatory'; // Фотки будут магнититься при свайпе
-    carouselEl.style.webkitOverflowScrolling = 'touch'; // Плавный скролл для iOS
-    carouselEl.style.scrollbarWidth = 'none'; // Прячем уродливый стандартный скроллбар
+    carouselEl.style.scrollSnapType = 'x mandatory'; 
+    carouselEl.style.webkitOverflowScrolling = 'touch'; 
+    carouselEl.style.scrollbarWidth = 'none'; 
 
-    // === ФОТКИ: ПОЛНЫЙ РАЗМЕР (CONTAIN) + РАЗРЕШЕНИЕ НА СОХРАНЕНИЕ ПО ДОЛГОМУ ТАПУ ===
+    // === ФОТКИ: ЧИСТАЯ ГЕНЕРАЦИЯ БЕЗ КОНФЛИКТНЫХ ИНЛАЙН-СТИЛЕЙ ===
     const images = Array.isArray(product.image_url) ? product.image_url : [product.image_url];
     
+    // ФИКС: Убрали инлайн flex: 0 0 100%, управление размерами теперь строго в CSS класса .carousel-item
     carouselEl.innerHTML = images.map(url => `
         <img src="${url}" class="carousel-item" 
-             style="flex: 0 0 100%; width: 100%; height: 350px; object-fit: contain; border-radius: 12px; scroll-snap-align: start; -webkit-touch-callout: default; pointer-events: auto;" 
+             style="scroll-snap-align: start; -webkit-touch-callout: default; pointer-events: auto;" 
              alt="Дроп" onerror="this.src='https://placehold.co/400x400?text=NO+IMAGE'">
     `).join('');
+
+    // === ИДЕАЛЬНЫЙ ФУЛЛСКРИН: ОДИН ТАП ЛИСТАЕТ ПО КРУГУ, ДВА — ОТКРЫВАЮТ НЕЗАВИСИМЫЙ ОВЕРЛЕЙ ===
+    if (!carouselEl.dataset.fullscreenInited) {
+        let clickTimer = null; 
+
+        carouselEl.addEventListener('click', function(e) {
+            const clickedImg = e.target.closest('img');
+            if (!clickedImg) return;
+
+            // ПРОВЕРКА НА ДВОЙНОЙ ТАП
+            if (e.detail === 2) { 
+                if (clickTimer) {
+                    clearTimeout(clickTimer);
+                    clickTimer = null;
+                }
+                
+                // Создаем полноценный независимый оверлей для фуллскрина в самом низу body (вне карточки товара)
+                const fsOverlay = document.createElement('div');
+                fsOverlay.id = 'global-fullscreen-overlay';
+                fsOverlay.style.cssText = `
+                    position: fixed !important;
+                    top: 0 !important;
+                    left: 0 !important;
+                    width: 100vw !important;
+                    height: 100vh !important;
+                    background: #000000 !important;
+                    z-index: 999999999 !important;
+                    display: flex !important;
+                    justify-content: center !important;
+                    align-items: center !important;
+                    cursor: pointer;
+                `;
+
+                const fsImg = document.createElement('img');
+                fsImg.src = clickedImg.src;
+                fsImg.style.cssText = `
+                    width: 100vw !important;
+                    height: 100vh !important;
+                    object-fit: contain !important;
+                    touch-action: none !important;
+                `;
+
+                fsOverlay.appendChild(fsImg);
+                document.body.appendChild(fsOverlay);
+
+                // Блокируем скролл заднего плана, пока смотрим фото
+                document.body.style.overflow = 'hidden';
+
+                // Закрытие фуллскрина по одиночному клику в любом месте экрана
+                fsOverlay.onclick = function() {
+                    fsOverlay.remove();
+                    document.body.style.overflow = '';
+                };
+                
+            } else if (e.detail === 1) {
+                // Если это первый клик — берем паузу в 250мс и ждем, не нажмет ли юзер второй раз
+                clickTimer = setTimeout(() => {
+                    const imgs = Array.from(carouselEl.querySelectorAll('img'));
+                    const currentIndex = imgs.indexOf(clickedImg);
+                    
+                    if (currentIndex !== -1) {
+                        if (currentIndex < imgs.length - 1) {
+                            // Листаем к следующей картинке дропа
+                            carouselEl.scrollTo({
+                                left: carouselEl.offsetWidth * (currentIndex + 1),
+                                behavior: 'smooth'
+                            });
+                        } else {
+                            // Если картинка последняя — возвращаемся на самую первую по кругу
+                            carouselEl.scrollTo({
+                                left: 0,
+                                behavior: 'smooth'
+                            });
+                        }
+                    }
+                    clickTimer = null; 
+                }, 250);
+            }
+        });
+
+        carouselEl.dataset.fullscreenInited = "true";
+    }
 
     // === АВТО-ГЕНЕРАЦИЯ ТОЧЕК ДЛЯ СКРОЛЛА КАРТИНOК ===
     let dotsContainer = document.getElementById('modal-dots');
@@ -101,7 +180,8 @@ window.openProductModal = function(productId) {
         dotsContainer = document.createElement('div');
         dotsContainer.id = 'modal-dots';
         dotsContainer.className = 'carousel-dots';
-        carouselEl.after(dotsContainer);
+        const wrapper = carouselEl.closest('.carousel-wrapper') || carouselEl;
+        wrapper.after(dotsContainer);
     }
     
     dotsContainer.innerHTML = images.map((_, index) => `
@@ -120,12 +200,13 @@ window.openProductModal = function(productId) {
     // Наполнили заголовок
     titleEl.innerText = product.name;
     
-    // === ОПИСАНИЕ: СТРУКТУРА С РАЗРЕШЕНИЕМ НА ВЫДЕЛЕНИЕ И КОПИРОВАНИЕ ===
+    // === ОПИСАНИЕ: СТРУКТУРА С РАЗРЕШЕНИЕМ НА ВЫДЕЛЕНИЕ И КНОПКОЙ КОПИРОВАНИЯ ===
     const fullText = product.description || 'Описание отсутствует.';
     
     descEl.innerHTML = `
-        <div class="desc-wrapper">
+        <div class="desc-wrapper" style="position: relative;">
             <div class="desc-scroll-box short-view" id="modal-desc-box" style="user-select: text !important; -webkit-user-select: text !important; pointer-events: auto;">${fullText}</div>
+            <div class="copy-desc-btn" id="modal-desc-copy">КОПИРОВАТЬ</div>
             <div class="toggle-desc-btn" id="modal-desc-toggle" style="display: none; position: relative; z-index: 10; pointer-events: auto;">Развернуть описание ↓</div>
         </div>
     `;
@@ -137,36 +218,55 @@ window.openProductModal = function(productId) {
     // === ЗАМЕР ВЫСОТЫ ОПИСАНИЯ ПОСЛЕ ОТКРЫТИЯ ОКНА ===
     const descBox = document.getElementById('modal-desc-box');
     const descToggle = document.getElementById('modal-desc-toggle');
+    const descCopyBtn = document.getElementById('modal-desc-copy');
     
-    if (descBox) descBox.scrollTop = 0; // Сбрасываем вертикальный скролл текста в ноль!
+    if (descBox) descBox.scrollTop = 0; 
+
+    if (descCopyBtn && descBox) {
+        descCopyBtn.onclick = function(e) {
+            e.stopPropagation();
+            navigator.clipboard.writeText(descBox.innerText).then(() => {
+                descCopyBtn.innerText = 'ГОТОВО! ✓';
+                descCopyBtn.style.color = '#00ff88';
+                descCopyBtn.style.borderColor = '#00ff88';
+                setTimeout(() => {
+                    descCopyBtn.innerText = 'КОПИРОВАТЬ';
+                    descCopyBtn.style.color = '';
+                    descCopyBtn.style.borderColor = '';
+                }, 1500);
+            }).catch(err => {
+                console.error('Не удалось скопировать текст: ', err);
+            });
+        };
+    }
 
     if (descBox && descToggle) {
-        if (descBox.scrollHeight > 90) {
+        if (descBox.scrollHeight > 80) {
             descToggle.style.display = 'block'; 
             
-            // === НОВАЯ ЛОГИКА: ПОЛНЫЙ ЭКРАН И ПЛАВАЮЩАЯ КНОПКА ===
             descToggle.onclick = function(e) {
                 e.stopPropagation(); 
+                const modalCloseBtn = modalEl.querySelector('[onclick*="closeModal"]');
+
                 if (descBox.classList.contains('short-view')) {
-                    // Идем в лонг: разворачиваем на весь экран
                     descBox.classList.remove('short-view');
                     descBox.classList.add('full-view');
-                    
                     descToggle.classList.add('floating-btn'); 
                     descToggle.innerText = 'СВЕРНУТЬ ↑';
-                    
-                    // Замораживаем скролл сайта
+                    descBox.scrollTop = 0; 
+                    if (modalCloseBtn) {
+                        modalCloseBtn.style.setProperty('display', 'none', 'important');
+                    }
                     document.body.style.overflow = 'hidden'; 
                 } else {
-                    // Фиксируем прибыль: возвращаем компактный вид
                     descBox.classList.remove('full-view');
                     descBox.classList.add('short-view');
-                    
                     descToggle.classList.remove('floating-btn'); 
                     descToggle.innerText = 'Развернуть описание ↓';
                     descBox.scrollTop = 0; 
-                    
-                    // Размораживаем скролл
+                    if (modalCloseBtn) {
+                        modalCloseBtn.style.setProperty('display', 'block', 'important');
+                    }
                     document.body.style.overflow = ''; 
                 }
             };
@@ -175,7 +275,7 @@ window.openProductModal = function(productId) {
         }
     }
 
-    // === ДИНАМИЧЕСКАЯ СЕТКА ВЫБОРА (БЕЗ НУЛЕЙ, ТОЛЬКО КНОПКИ) ===
+    // === ДИНАМИЧЕСКАЯ СЕТКА ВЫБОРА РАЗМЕРОВ ===
     let sizesContainer = document.getElementById('modal-sizes');
     if (!sizesContainer) {
         sizesContainer = document.createElement('div');
@@ -205,7 +305,6 @@ window.openProductModal = function(productId) {
 
     priceEl.innerText = `${product.price} UAH`;
 
-    // === БЕЗОПАСНАЯ ИЗОЛЯЦИЯ КЛИКОВ ВНУТРИ МОДАЛКИ ===
     const modalContentEl = modalEl.querySelector('.modal-content') || modalEl;
     modalContentEl.onclick = function(event) {
         event.stopPropagation(); 
@@ -219,23 +318,28 @@ window.closeModal = function() {
     if (modalEl) {
         modalEl.classList.remove('active');
         
-        // СЕЙФГАРД: Принудительно сворачиваем описание, если юзер закрыл модалку
+        // СЕЙФГАРД: Если закрыли модалку, убираем фуллскрин у картинок, если он был активен
+        const activeFullscreenImg = modalEl.querySelector('img.fullscreen-mode');
+        if (activeFullscreenImg) {
+            activeFullscreenImg.classList.remove('fullscreen-mode');
+        }
+        
         const descBox = document.getElementById('modal-desc-box');
         const descToggle = document.getElementById('modal-desc-toggle');
         
         if (descBox) {
             descBox.classList.remove('full-view');
             descBox.classList.add('short-view');
+            descBox.scrollTop = 0;
         }
         if (descToggle) {
             descToggle.classList.remove('floating-btn');
             descToggle.innerText = 'Развернуть описание ↓';
         }
         
-        // Размораживаем скролл интерфейса
         document.body.style.overflow = '';
+        modalEl.style.overflowY = 'auto'; // Возвращаем дефолтный скролл модалки
         
-        // Безопасное скрытие через таймаут для плавной анимации
         setTimeout(() => {
             if (modalEl && modalEl.style) {
                 modalEl.style.setProperty('display', 'none', 'important');
@@ -243,33 +347,6 @@ window.closeModal = function() {
         }, 200);
     }
 };
-
-// 3. ДОПОЛНИТЕЛЬНО: Логика кнопки «Развернуть / Свернуть» внутри модалки
-// Вставляем один раз, чтобы кнопка работала как триггер в обе стороны
-const descToggle = document.getElementById('modal-desc-toggle');
-const descBox = document.getElementById('modal-desc-box');
-
-if (descToggle && descBox) {
-    // Убираем старые слушатели, если они были, и вешаем чистый триггер
-    descToggle.onclick = function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        if (descBox.classList.contains('short-view')) {
-            // Разворачиваем
-            descBox.classList.remove('short-view');
-            descBox.classList.add('full-view');
-            descToggle.classList.add('floating-btn');
-            descToggle.innerText = 'Свернуть описание ↑';
-        } else {
-            // Сворачиваем обратно
-            descBox.classList.remove('full-view');
-            descBox.classList.add('short-view');
-            descToggle.classList.remove('floating-btn');
-            descToggle.innerText = 'Развернуть описание ↓';
-        }
-    };
-}
 
 // 3. ЛОГИКА КНОПКИ "ПРОДАНО" — ИСПРАВЛЕНА ДЛЯ ТЕЛЕГРАМА
 window.markAsSold = function(productId) {
