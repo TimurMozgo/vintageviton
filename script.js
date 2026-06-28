@@ -99,12 +99,6 @@ window.openProductModal = function(productId) {
     }
 
     // Вешаем чистый onclick напрямую (он затирает старые листенеры и работает без сбоев)
-    // === ИДЕАЛЬНЫЙ ФУЛЛСКРИН ДЛЯ ФОТО: СВЕЖИЙ ОБРАБОТЧИК + КНОПКА СКАЧИВАНИЯ 2026 ===
-    if (carouselEl.clickTimer) {
-        clearTimeout(carouselEl.clickTimer);
-        carouselEl.clickTimer = null;
-    }
-
     carouselEl.onclick = function(e) {
         const clickedImg = e.target.closest('img');
         if (!clickedImg) return;
@@ -116,7 +110,7 @@ window.openProductModal = function(productId) {
                 carouselEl.clickTimer = null;
             }
             
-            // Создаем фуллскрин-оверлей
+            // Создаем независимый оверлей для фуллскрина фото вне карточки
             const fsOverlay = document.createElement('div');
             fsOverlay.id = 'global-fullscreen-overlay';
             fsOverlay.style.cssText = `
@@ -142,54 +136,7 @@ window.openProductModal = function(productId) {
                 touch-action: none !important;
             `;
 
-            // ФУТУРИСТИЧНАЯ КНОПКА СКАЧИВАНИЯ (СТИЛЬ 2026)
-            const downloadBtn = document.createElement('a');
-            downloadBtn.href = clickedImg.src;
-            // Генерим красивое имя файла, убирая лишние символы из ссылки
-            downloadBtn.download = `tine_drop_${productId || 'item'}.jpg`; 
-            downloadBtn.target = '_blank';
-            downloadBtn.innerText = 'SAVE TO DEVICE';
-            
-            downloadBtn.style.cssText = `
-                position: absolute !important;
-                bottom: 40px !important;
-                background: rgba(179, 136, 255, 0.08) !important;
-                border: 1px solid rgba(179, 136, 255, 0.3) !important;
-                color: #b388ff !important;
-                padding: 12px 28px !important;
-                border-radius: 12px !important;
-                font-family: monospace !important;
-                font-size: 12px !important;
-                font-weight: bold !important;
-                letter-spacing: 0.1em !important;
-                text-decoration: none !important;
-                z-index: 1000000000 !important;
-                backdrop-filter: blur(12px) !important;
-                -webkit-backdrop-filter: blur(12px) !important;
-                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
-                transition: all 0.2s ease !important;
-                text-transform: uppercase !important;
-            `;
-
-            // Эффект нажатия (активное состояние на мобилках)
-            downloadBtn.ontouchstart = function() {
-                downloadBtn.style.background = 'rgba(179, 136, 255, 0.25) !important';
-                downloadBtn.style.borderColor = '#b388ff !important';
-                downloadBtn.style.boxShadow = '0 0 15px rgba(179, 136, 255, 0.4) !important';
-            };
-            downloadBtn.ontouchend = function() {
-                downloadBtn.style.background = 'rgba(179, 136, 255, 0.08) !important';
-                downloadBtn.style.borderColor = 'rgba(179, 136, 255, 0.3) !important';
-                downloadBtn.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.5) !important';
-            };
-
-            // Предотвращаем закрытие оверлея при клике на саму кнопку
-            downloadBtn.onclick = function(evt) {
-                evt.stopPropagation();
-            };
-
             fsOverlay.appendChild(fsImg);
-            fsOverlay.appendChild(downloadBtn);
             document.body.appendChild(fsOverlay);
             document.body.style.overflow = 'hidden';
 
@@ -199,7 +146,7 @@ window.openProductModal = function(productId) {
             };
             
         } else if (e.detail === 1) {
-            // Одиночный тап — плавный скролл галереи
+            // Одиночный тап — листаем картинки по кругу
             carouselEl.clickTimer = setTimeout(() => {
                 const imgs = Array.from(carouselEl.querySelectorAll('img'));
                 const currentIndex = imgs.indexOf(clickedImg);
@@ -903,9 +850,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
 
+                // === ИСПРАВЛЕННЫЙ БЛОК ИНСЕРТА ТОВАРA ===
                 const { data: productData, error: productError } = await supabaseClient
-                    .from('products')
-                    .from('products')
+                    .from('products') // Оставляем строго один раз!
                     .insert([{ 
                         name: name, 
                         price: price, 
