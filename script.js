@@ -23,7 +23,7 @@ let supabaseClient = null;
 // Текущий экран склада: 'active' (в наличии) или 'sold' (продано)
 window.currentWarehouseTab = 'active';
 
-// 1. ЛОГИКА КНОПКИ "УЗНАТЬ БОЛЬШЕ" — С ИСПРАВЛЕННЫМ БЕЗБАГОВЫМ ФУЛЛСКРИНОМ ВНЕ МОДАЛКИ
+// 1. ЛОГИКА КНОПКИ "УЗНАТЬ БОЛЬШЕ" — СТАБИЛЬНЫЙ ОВЕРЛЕЙ ДЛЯ ТЕКСТА И БЕЗБАГОВЫЙ ФУЛЛСКРИН
 window.openProductModal = function(productId) {
     // Проверка 1: Загружен ли кэш товаров
     if (!window.currentProducts || window.currentProducts.length === 0) {
@@ -75,7 +75,7 @@ window.openProductModal = function(productId) {
     }
 
     // === ЖЕСТКИЙ СБРОС И СТАБИЛИЗАЦИЯ КАРУСЕЛИ ДЛЯ ТЕЛЕГРАМА ===
-    carouselEl.scrollLeft = 0; // Сбрасываем скролл картинок в ноль!
+    carouselEl.scrollLeft = 0; 
     carouselEl.style.display = 'flex';
     carouselEl.style.overflowX = 'auto';
     carouselEl.style.scrollSnapType = 'x mandatory'; 
@@ -85,94 +85,89 @@ window.openProductModal = function(productId) {
     // === ФОТКИ: ЧИСТАЯ ГЕНЕРАЦИЯ БЕЗ КОНФЛИКТНЫХ ИНЛАЙН-СТИЛЕЙ ===
     const images = Array.isArray(product.image_url) ? product.image_url : [product.image_url];
     
-    // ФИКС: Убрали инлайн flex: 0 0 100%, управление размерами теперь строго в CSS класса .carousel-item
     carouselEl.innerHTML = images.map(url => `
         <img src="${url}" class="carousel-item" 
              style="scroll-snap-align: start; -webkit-touch-callout: default; pointer-events: auto;" 
              alt="Дроп" onerror="this.src='https://placehold.co/400x400?text=NO+IMAGE'">
     `).join('');
 
-    // === ИДЕАЛЬНЫЙ ФУЛЛСКРИН: ОДИН ТАП ЛИСТАЕТ ПО КРУГУ, ДВА — ОТКРЫВАЮТ НЕЗАВИСИМЫЙ ОВЕРЛЕЙ ===
-    if (!carouselEl.dataset.fullscreenInited) {
-        let clickTimer = null; 
-
-        carouselEl.addEventListener('click', function(e) {
-            const clickedImg = e.target.closest('img');
-            if (!clickedImg) return;
-
-            // ПРОВЕРКА НА ДВОЙНОЙ ТАП
-            if (e.detail === 2) { 
-                if (clickTimer) {
-                    clearTimeout(clickTimer);
-                    clickTimer = null;
-                }
-                
-                // Создаем полноценный независимый оверлей для фуллскрина в самом низу body (вне карточки товара)
-                const fsOverlay = document.createElement('div');
-                fsOverlay.id = 'global-fullscreen-overlay';
-                fsOverlay.style.cssText = `
-                    position: fixed !important;
-                    top: 0 !important;
-                    left: 0 !important;
-                    width: 100vw !important;
-                    height: 100vh !important;
-                    background: #000000 !important;
-                    z-index: 999999999 !important;
-                    display: flex !important;
-                    justify-content: center !important;
-                    align-items: center !important;
-                    cursor: pointer;
-                `;
-
-                const fsImg = document.createElement('img');
-                fsImg.src = clickedImg.src;
-                fsImg.style.cssText = `
-                    width: 100vw !important;
-                    height: 100vh !important;
-                    object-fit: contain !important;
-                    touch-action: none !important;
-                `;
-
-                fsOverlay.appendChild(fsImg);
-                document.body.appendChild(fsOverlay);
-
-                // Блокируем скролл заднего плана, пока смотрим фото
-                document.body.style.overflow = 'hidden';
-
-                // Закрытие фуллскрина по одиночному клику в любом месте экрана
-                fsOverlay.onclick = function() {
-                    fsOverlay.remove();
-                    document.body.style.overflow = '';
-                };
-                
-            } else if (e.detail === 1) {
-                // Если это первый клик — берем паузу в 250мс и ждем, не нажмет ли юзер второй раз
-                clickTimer = setTimeout(() => {
-                    const imgs = Array.from(carouselEl.querySelectorAll('img'));
-                    const currentIndex = imgs.indexOf(clickedImg);
-                    
-                    if (currentIndex !== -1) {
-                        if (currentIndex < imgs.length - 1) {
-                            // Листаем к следующей картинке дропа
-                            carouselEl.scrollTo({
-                                left: carouselEl.offsetWidth * (currentIndex + 1),
-                                behavior: 'smooth'
-                            });
-                        } else {
-                            // Если картинка последняя — возвращаемся на самую первую по кругу
-                            carouselEl.scrollTo({
-                                left: 0,
-                                behavior: 'smooth'
-                            });
-                        }
-                    }
-                    clickTimer = null; 
-                }, 250);
-            }
-        });
-
-        carouselEl.dataset.fullscreenInited = "true";
+    // === ИДЕАЛЬНЫЙ ФУЛЛСКРИН ДЛЯ ФОТО: СВЕЖИЙ ОБРАБОТЧИК ПРИ КАЖДОМ ОТКРЫТИИ МОДАЛКИ ===
+    // Сбрасываем старый таймер, если он завис
+    if (carouselEl.clickTimer) {
+        clearTimeout(carouselEl.clickTimer);
+        carouselEl.clickTimer = null;
     }
+
+    // Вешаем чистый onclick напрямую (он затирает старые листенеры и работает без сбоев)
+    carouselEl.onclick = function(e) {
+        const clickedImg = e.target.closest('img');
+        if (!clickedImg) return;
+
+        // ПРОВЕРКА НА ДВОЙНОЙ ТАП
+        if (e.detail === 2) { 
+            if (carouselEl.clickTimer) {
+                clearTimeout(carouselEl.clickTimer);
+                carouselEl.clickTimer = null;
+            }
+            
+            // Создаем независимый оверлей для фуллскрина фото вне карточки
+            const fsOverlay = document.createElement('div');
+            fsOverlay.id = 'global-fullscreen-overlay';
+            fsOverlay.style.cssText = `
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                background: #000000 !important;
+                z-index: 999999999 !important;
+                display: flex !important;
+                justify-content: center !important;
+                align-items: center !important;
+                cursor: pointer;
+            `;
+
+            const fsImg = document.createElement('img');
+            fsImg.src = clickedImg.src;
+            fsImg.style.cssText = `
+                width: 100vw !important;
+                height: 100vh !important;
+                object-fit: contain !important;
+                touch-action: none !important;
+            `;
+
+            fsOverlay.appendChild(fsImg);
+            document.body.appendChild(fsOverlay);
+            document.body.style.overflow = 'hidden';
+
+            fsOverlay.onclick = function() {
+                fsOverlay.remove();
+                document.body.style.overflow = '';
+            };
+            
+        } else if (e.detail === 1) {
+            // Одиночный тап — листаем картинки по кругу
+            carouselEl.clickTimer = setTimeout(() => {
+                const imgs = Array.from(carouselEl.querySelectorAll('img'));
+                const currentIndex = imgs.indexOf(clickedImg);
+                
+                if (currentIndex !== -1) {
+                    if (currentIndex < imgs.length - 1) {
+                        carouselEl.scrollTo({
+                            left: carouselEl.offsetWidth * (currentIndex + 1),
+                            behavior: 'smooth'
+                        });
+                    } else {
+                        carouselEl.scrollTo({
+                            left: 0,
+                            behavior: 'smooth'
+                        });
+                    }
+                }
+                carouselEl.clickTimer = null; 
+            }, 250);
+        }
+    };
 
     // === АВТО-ГЕНЕРАЦИЯ ТОЧЕК ДЛЯ СКРОЛЛА КАРТИНOК ===
     let dotsContainer = document.getElementById('modal-dots');
@@ -200,14 +195,13 @@ window.openProductModal = function(productId) {
     // Наполнили заголовок
     titleEl.innerText = product.name;
     
-    // === ОПИСАНИЕ: СТРУКТУРА С РАЗРЕШЕНИЕМ НА ВЫДЕЛЕНИЕ И КНОПКОЙ КОПИРОВАНИЯ ===
+    // === ОПИСАНИЕ: БАЗОВАЯ КОМПАКТНАЯ СТРУКТУРА В КАРТОЧКЕ ===
     const fullText = product.description || 'Описание отсутствует.';
     
     descEl.innerHTML = `
-        <div class="desc-wrapper" style="position: relative;">
-            <div class="desc-scroll-box short-view" id="modal-desc-box" style="user-select: text !important; -webkit-user-select: text !important; pointer-events: auto;">${fullText}</div>
-            <div class="copy-desc-btn" id="modal-desc-copy">КОПИРОВАТЬ</div>
-            <div class="toggle-desc-btn" id="modal-desc-toggle" style="display: none; position: relative; z-index: 10; pointer-events: auto;">Развернуть описание ↓</div>
+        <div class="desc-wrapper">
+            <div class="desc-scroll-box short-view" id="modal-desc-box">${fullText}</div>
+            <div class="toggle-desc-btn" id="modal-desc-toggle">Развернуть описание ↓</div>
         </div>
     `;
 
@@ -215,60 +209,121 @@ window.openProductModal = function(productId) {
     modalEl.style.setProperty('display', 'flex', 'important');
     modalEl.classList.add('active'); 
 
-    // === ЗАМЕР ВЫСОТЫ ОПИСАНИЯ ПОСЛЕ ОТКРЫТИЯ ОКНА ===
+    // === ЛОГИКА ДИНАМИЧЕСКОГО СВЕРХНАДЕЖНОГО ПОЛНОЭКРАННОГО ОПИСАНИЯ ===
     const descBox = document.getElementById('modal-desc-box');
     const descToggle = document.getElementById('modal-desc-toggle');
-    const descCopyBtn = document.getElementById('modal-desc-copy');
     
-    if (descBox) descBox.scrollTop = 0; 
-
-    if (descCopyBtn && descBox) {
-        descCopyBtn.onclick = function(e) {
-            e.stopPropagation();
-            navigator.clipboard.writeText(descBox.innerText).then(() => {
-                descCopyBtn.innerText = 'ГОТОВО! ✓';
-                descCopyBtn.style.color = '#00ff88';
-                descCopyBtn.style.borderColor = '#00ff88';
-                setTimeout(() => {
-                    descCopyBtn.innerText = 'КОПИРОВАТЬ';
-                    descCopyBtn.style.color = '';
-                    descCopyBtn.style.borderColor = '';
-                }, 1500);
-            }).catch(err => {
-                console.error('Не удалось скопировать текст: ', err);
-            });
-        };
-    }
-
     if (descBox && descToggle) {
         if (descBox.scrollHeight > 80) {
             descToggle.style.display = 'block'; 
             
             descToggle.onclick = function(e) {
                 e.stopPropagation(); 
-                const modalCloseBtn = modalEl.querySelector('[onclick*="closeModal"]');
 
-                if (descBox.classList.contains('short-view')) {
-                    descBox.classList.remove('short-view');
-                    descBox.classList.add('full-view');
-                    descToggle.classList.add('floating-btn'); 
-                    descToggle.innerText = 'СВЕРНУТЬ ↑';
-                    descBox.scrollTop = 0; 
-                    if (modalCloseBtn) {
-                        modalCloseBtn.style.setProperty('display', 'none', 'important');
-                    }
-                    document.body.style.overflow = 'hidden'; 
-                } else {
-                    descBox.classList.remove('full-view');
-                    descBox.classList.add('short-view');
-                    descToggle.classList.remove('floating-btn'); 
-                    descToggle.innerText = 'Развернуть описание ↓';
-                    descBox.scrollTop = 0; 
-                    if (modalCloseBtn) {
-                        modalCloseBtn.style.setProperty('display', 'block', 'important');
-                    }
-                    document.body.style.overflow = ''; 
-                }
+                // Создаем изолированный полноэкранный слой-оверлей
+                const textOverlay = document.createElement('div');
+                textOverlay.id = 'global-text-fullscreen';
+                textOverlay.style.cssText = `
+                    position: fixed !important;
+                    top: 0 !important;
+                    left: 0 !important;
+                    width: 100vw !important;
+                    height: 100vh !important;
+                    background: #0d0d0d !important;
+                    z-index: 999999999 !important;
+                    display: flex !important;
+                    flex-direction: column !important;
+                    box-sizing: border-box !important;
+                    padding: 70px 20px 90px 20px !important;
+                `;
+
+                // Независимая кнопка копирования в шапке оверлея
+                const copyBtn = document.createElement('div');
+                copyBtn.innerText = 'КОПИРОВАТЬ';
+                copyBtn.style.cssText = `
+                    position: absolute !important;
+                    top: 15px !important;
+                    right: 20px !important;
+                    background: rgba(179, 136, 255, 0.1) !important;
+                    border: 1px solid rgba(179, 136, 255, 0.4) !important;
+                    color: #b388ff !important;
+                    padding: 8px 16px !important;
+                    font-size: 11px !important;
+                    font-family: monospace !important;
+                    font-weight: bold !important;
+                    border-radius: 6px !important;
+                    cursor: pointer !important;
+                    z-index: 1000000001 !important;
+                    text-transform: uppercase !important;
+                `;
+
+                copyBtn.onclick = function(evt) {
+                    evt.stopPropagation();
+                    navigator.clipboard.writeText(fullText).then(() => {
+                        copyBtn.innerText = 'ГОТОВО! ✓';
+                        copyBtn.style.color = '#00ff88';
+                        copyBtn.style.borderColor = '#00ff88';
+                        setTimeout(() => {
+                            copyBtn.innerText = 'КОПИРОВАТЬ';
+                            copyBtn.style.color = '#b388ff';
+                            copyBtn.style.borderColor = 'rgba(179, 136, 255, 0.4)';
+                        }, 1500);
+                    });
+                };
+
+                // Отдельный изолированный контейнер для скроллинга текста
+                const scrollContainer = document.createElement('div');
+                scrollContainer.style.cssText = `
+                    width: 100% !important;
+                    height: 100% !important;
+                    overflow-y: auto !important;
+                    overflow-x: hidden !important;
+                    color: #ffffff !important;
+                    font-size: 15px !important;
+                    line-height: 1.6 !important;
+                    text-align: left !important;
+                    -webkit-overflow-scrolling: touch !important;
+                    user-select: text !important;
+                    -webkit-user-select: text !important;
+                `;
+                scrollContainer.innerText = fullText;
+
+                // Независимая кнопка закрытия (СВЕРНУТЬ) в самом низу оверлея
+                const closeBtn = document.createElement('div');
+                closeBtn.innerText = 'СВЕРНУТЬ ↑';
+                closeBtn.style.cssText = `
+                    position: absolute !important;
+                    bottom: 25px !important;
+                    left: 5% !important;
+                    width: 90% !important;
+                    background: #111111 !important;
+                    border: 2px solid #b388ff !important;
+                    color: #b388ff !important;
+                    border-radius: 8px !important;
+                    padding: 14px 0 !important;
+                    font-size: 14px !important;
+                    font-weight: bold !important;
+                    text-align: center !important;
+                    cursor: pointer !important;
+                    z-index: 1000000001 !important;
+                    box-shadow: 0 0 15px rgba(179, 136, 255, 0.4) !important;
+                    text-transform: uppercase !important;
+                `;
+
+                closeBtn.onclick = function(evt) {
+                    evt.stopPropagation();
+                    textOverlay.remove();
+                    document.body.style.overflow = '';
+                };
+
+                // Собираем элементы внутри оверлея
+                textOverlay.appendChild(copyBtn);
+                textOverlay.appendChild(scrollContainer);
+                textOverlay.appendChild(closeBtn);
+                document.body.appendChild(textOverlay);
+
+                // Блокируем скролл заднего фона карточки
+                document.body.style.overflow = 'hidden';
             };
         } else {
             descToggle.style.display = 'none'; 
