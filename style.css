@@ -895,40 +895,6 @@ body {
     -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
 }
 
-
-/* .desc-scroll-box.full-view {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
-    max-height: 100% !important;
-    
-    border-radius: 0 !important;
-    border: none !important;
-    
-    background: #0d0d0d !important; 
-    color: #ffffff !important; 
-    font-size: 15px !important; 
-    line-height: 1.6 !important;
-    
-    padding: 70px 20px 100px 20px !important; 
-
-    z-index: 999999 !important; 
-    
-    mask-image: none !important;
-    -webkit-mask-image: none !important;
-    
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-    -webkit-overflow-scrolling: touch !important;
-    box-sizing: border-box !important;
-    
-    user-select: text !important;
-    -webkit-user-select: text !important;
-    pointer-events: auto !important;
-} */
-
 /* КНОПКА КОПИРОВАНИЯ ВНУТРИ ФУЛЛ-СКРИНА */
 .copy-desc-btn {
     display: none; /* В обычном состоянии она скрыта */
@@ -948,11 +914,6 @@ body {
     text-transform: uppercase;
     transition: all 0.2s ease;
 }
-
-/* .desc-scroll-box.full-view + .copy-desc-btn,
-.desc-wrapper:has(.desc-scroll-box.full-view) .copy-desc-btn {
-    display: block !important;
-} */
 
 .copy-desc-btn:active {
     background: rgba(0, 255, 136, 0.2);
@@ -985,27 +946,6 @@ body {
     z-index: 100 !important;
     transition: all 0.2s ease !important;
 }
-
-/* .desc-scroll-box.full-view + .toggle-desc-btn,
-.toggle-desc-btn.floating-btn,
-.desc-wrapper:has(.desc-scroll-box.full-view) .toggle-desc-btn {
-    position: fixed !important; 
-    bottom: 25px !important; 
-    left: 5% !important;
-    right: 5% !important;
-    width: 90% !important; 
-    margin: 0 auto !important;
-    
-    background: #111111 !important; 
-    border: 2px solid #b388ff !important;
-    color: #b388ff !important;
-    border-radius: 8px !important;
-    padding: 14px 0 !important;
-    font-size: 14px !important;
-    
-    z-index: 1000000 !important; 
-    box-shadow: 0 0 15px rgba(179, 136, 255, 0.4) !important;
-} */
 
 .toggle-desc-btn:active {
     color: #00ff88 !important; /* При тапе вспыхивает зеленым */

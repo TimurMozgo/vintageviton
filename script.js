@@ -351,7 +351,7 @@ window.openProductModal = async function(productId) {
             `;
         } else {
             sizesContainer.innerHTML = `
-                <div class="size-title" style="font-family: monospace; font-size: 11px; color: #888; font-weight: bold; margin-bottom: 10px; text-transform: uppercase;">Выберите размер:</div>
+                <div class="size-title" style="font-family: monospace; font-size: 11px; color: #888; font-weight: bold; margin-bottom: 10px; text-transform: uppercase;">Размер:</div>
                 <div class="size-grid">
                     ${activeSizes.map(size => `
                         <div class="size-btn" data-size="${size}">${size}</div>
