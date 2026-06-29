@@ -24,7 +24,7 @@ let supabaseClient = null;
 window.currentWarehouseTab = 'active';
 
 // 1. ЛОГИКА КНОПКИ "УЗНАТЬ БОЛЬШЕ" — СТАБИЛЬНЫЙ ОВЕРЛЕЙ ДЛЯ ТЕКСТА И БЕЗБАГОВЫЙ ФУЛЛСКРИН
-window.openProductModal = function(productId) {
+window.openProductModal = async function(productId) {
     // Проверка 1: Загружен ли кэш товаров
     if (!window.currentProducts || window.currentProducts.length === 0) {
         if (window.Telegram && window.Telegram.WebApp) {
@@ -92,13 +92,11 @@ window.openProductModal = function(productId) {
     `).join('');
 
     // === ИДЕАЛЬНЫЙ ФУЛЛСКРИН ДЛЯ ФОТО: СВЕЖИЙ ОБРАБОТЧИК ПРИ КАЖДОМ ОТКРЫТИИ МОДАЛКИ ===
-    // Сбрасываем старый таймер, если он завис
     if (carouselEl.clickTimer) {
         clearTimeout(carouselEl.clickTimer);
         carouselEl.clickTimer = null;
     }
 
-    // Вешаем чистый onclick напрямую (он затирает старые листенеры и работает без сбоев)
     carouselEl.onclick = function(e) {
         const clickedImg = e.target.closest('img');
         if (!clickedImg) return;
@@ -110,7 +108,6 @@ window.openProductModal = function(productId) {
                 carouselEl.clickTimer = null;
             }
             
-            // Создаем независимый оверлей для фуллскрина фото вне карточки
             const fsOverlay = document.createElement('div');
             fsOverlay.id = 'global-fullscreen-overlay';
             fsOverlay.style.cssText = `
@@ -146,7 +143,6 @@ window.openProductModal = function(productId) {
             };
             
         } else if (e.detail === 1) {
-            // Одиночный тап — листаем картинки по кругу
             carouselEl.clickTimer = setTimeout(() => {
                 const imgs = Array.from(carouselEl.querySelectorAll('img'));
                 const currentIndex = imgs.indexOf(clickedImg);
@@ -192,7 +188,6 @@ window.openProductModal = function(productId) {
         });
     };
 
-    // Наполнили заголовок
     titleEl.innerText = product.name;
     
     // === ОПИСАНИЕ: БАЗОВАЯ КОМПАКТНАЯ СТРУКТУРА В КАРТОЧКЕ ===
@@ -220,7 +215,6 @@ window.openProductModal = function(productId) {
             descToggle.onclick = function(e) {
                 e.stopPropagation(); 
 
-                // Создаем изолированный полноэкранный слой-оверлей
                 const textOverlay = document.createElement('div');
                 textOverlay.id = 'global-text-fullscreen';
                 textOverlay.style.cssText = `
@@ -237,7 +231,6 @@ window.openProductModal = function(productId) {
                     padding: 70px 20px 90px 20px !important;
                 `;
 
-                // Независимая кнопка копирования в шапке оверлея
                 const copyBtn = document.createElement('div');
                 copyBtn.innerText = 'КОПИРОВАТЬ';
                 copyBtn.style.cssText = `
@@ -271,7 +264,6 @@ window.openProductModal = function(productId) {
                     });
                 };
 
-                // Отдельный изолированный контейнер для скроллинга текста
                 const scrollContainer = document.createElement('div');
                 scrollContainer.style.cssText = `
                     width: 100% !important;
@@ -288,7 +280,6 @@ window.openProductModal = function(productId) {
                 `;
                 scrollContainer.innerText = fullText;
 
-                // Независимая кнопка закрытия (СВЕРНУТЬ) в самом низу оверлея
                 const closeBtn = document.createElement('div');
                 closeBtn.innerText = 'СВЕРНУТЬ ↑';
                 closeBtn.style.cssText = `
@@ -316,13 +307,11 @@ window.openProductModal = function(productId) {
                     document.body.style.overflow = '';
                 };
 
-                // Собираем элементы внутри оверлея
                 textOverlay.appendChild(copyBtn);
                 textOverlay.appendChild(scrollContainer);
                 textOverlay.appendChild(closeBtn);
                 document.body.appendChild(textOverlay);
 
-                // Блокируем скролл заднего фона карточки
                 document.body.style.overflow = 'hidden';
             };
         } else {
@@ -330,7 +319,7 @@ window.openProductModal = function(productId) {
         }
     }
 
-    // === ДИНАМИЧЕСКАЯ СЕТКА ВЫБОРА РАЗМЕРОВ ===
+    // === ДИНАМИЧЕСКАЯ СЕТКА ВЫБОРА РАЗМЕРОВ (ИНТЕГРАЦИЯ С БАЗОЙ СУПАБЕЙС) ===
     let sizesContainer = document.getElementById('modal-sizes');
     if (!sizesContainer) {
         sizesContainer = document.createElement('div');
@@ -339,24 +328,53 @@ window.openProductModal = function(productId) {
         priceEl.before(sizesContainer);
     }
 
-    const availableSizes = product.sizes || ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'];
-
+    // Лоадер перед выполнением запроса
     sizesContainer.innerHTML = `
-        <div class="size-title" style="font-family: monospace; font-size: 11px; color: #888; font-weight: bold; margin-bottom: 10px; text-transform: uppercase;">Выберите размер:</div>
-        <div class="size-grid">
-            ${availableSizes.map(size => `
-                <div class="size-btn" data-size="${size}">${size}</div>
-            `).join('')}
-        </div>
+        <div class="size-title" style="font-family: monospace; font-size: 11px; color: #888; font-weight: bold; margin-bottom: 10px; text-transform: uppercase;">Загрузка склада...</div>
     `;
 
-    sizesContainer.querySelectorAll('.size-btn').forEach(btn => {
-        btn.onclick = function(e) {
-            e.stopPropagation();
-            sizesContainer.querySelectorAll('.size-btn').forEach(b => b.classList.remove('selected'));
-            btn.classList.add('selected');
-        };
-    });
+    try {
+        // Обязательный await внутри асинхронной функции
+        const { data: variants, error: varError } = await supabaseClient
+            .from('product_variants')
+            .select('size, stock')
+            .eq('product_id', product.id)
+            .gt('stock', 0);
+
+        if (varError) throw varError;
+
+        const activeSizes = variants ? variants.map(v => v.size) : [];
+
+        if (activeSizes.length === 0) {
+            sizesContainer.innerHTML = `
+                <div class="size-title" style="font-family: monospace; font-size: 11px; color: #ff1744; font-weight: bold; margin-bottom: 10px; text-transform: uppercase;">НЕТ В НАЛИЧИИ</div>
+            `;
+        } else {
+            sizesContainer.innerHTML = `
+                <div class="size-title" style="font-family: monospace; font-size: 11px; color: #888; font-weight: bold; margin-bottom: 10px; text-transform: uppercase;">Выберите размер:</div>
+                <div class="size-grid">
+                    ${activeSizes.map(size => `
+                        <div class="size-btn" data-size="${size}">${size}</div>
+                    `).join('')}
+                </div>
+            `;
+
+            sizesContainer.querySelectorAll('.size-btn').forEach(btn => {
+                btn.onclick = function(e) {
+                    e.stopPropagation();
+                    sizesContainer.querySelectorAll('.size-btn').forEach(b => b.classList.remove('selected'));
+                    btn.classList.add('selected');
+                    modalEl.setAttribute('data-selected-size', btn.getAttribute('data-size'));
+                };
+            });
+        }
+
+    } catch (err) {
+        console.error("Ошибка загрузки размеров в модалку:", err.message);
+        sizesContainer.innerHTML = `
+            <div class="size-title" style="font-family: monospace; font-size: 11px; color: #ff1744; font-weight: bold; margin-bottom: 10px; text-transform: uppercase;">ОШИБКА ОТОБРАЖЕНИЯ РАЗМЕРОВ</div>
+        `;
+    }
 
     priceEl.innerText = `${product.price} UAH`;
 
@@ -364,7 +382,7 @@ window.openProductModal = function(productId) {
     modalContentEl.onclick = function(event) {
         event.stopPropagation(); 
     };
-};
+}
 
 // 2. ЗАКРЫТИЕ МОДАЛКИ ТОВАРA — ПОЛНАЯ СИНХРОНИЗАЦИЯ И СБРОС
 window.closeModal = function() {
