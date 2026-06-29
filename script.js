@@ -708,7 +708,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!products || products.length === 0) {
                 // Умный текст пустой папки
-                const emptyText = (window.currentWarehouseTab === 'sold') ? 'АРХИВ ПРОДАННЫХ ПУСТ' : 'СКЛАД ПУСТ';
+                const emptyText = (window.currentWarehouseTab === 'sold') ? 'АРХИВ ПРОДАННЫХ ТОВАРОВ ПУСТ' : 'СКЛАД ПУСТ';
                 productsGrid.innerHTML = `<p class="loading-text">${emptyText}</p>`;
                 return;
             }
